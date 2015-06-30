@@ -11,7 +11,8 @@ from matplotlib import pyplot as plt
 # Change Log:
 #	28/06/2015:
 #		-Began writing the change log
-#
+#	30/06/2015:
+#		-Added .git for the project, all further changes are done through that.
 ###############################################################################
 
 
