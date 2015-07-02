@@ -5,6 +5,7 @@ import urllib2
 import time
 import cv2
 import numpy as np
+import requests
 from matplotlib import pyplot as plt
 
 ###############################################################################
@@ -18,8 +19,10 @@ from matplotlib import pyplot as plt
 ###############################################################################
 
 
-# Checks if Cube Solver is running
 def checkStatus():
+    """
+    Checks if the Cube Solver is running
+    """
     output = commands.getoutput('ps -A')
     if 'cube512htm' in output:
         return True
@@ -27,8 +30,10 @@ def checkStatus():
         return False
 
 
-# Kills and waits for prog to end
 def exitSolver(prog):
+    """
+    Kills and then waits for prog to end
+    """
     print('Now Exiting:'),
     if prog is True:
         print('Cube Explorer was initally open, leaving open')
@@ -45,8 +50,10 @@ def exitSolver(prog):
     return
 
 
-# Image analysis, returns colour values
 def visionSystem():
+    """
+    Analyses the cube face images, returns colour values
+    """
     ## Currently just parses preset values and as such is a placeholder
     ## for the actual vision system
     ## will probably need to be broken into multiple functions
@@ -99,9 +106,12 @@ def visionSystem():
     return frontvs, backvs, upvs, downvs, leftvs, rightvs
 
 
-# Gets the image from the connected camera, passes back as a mat in RGB
-# NOTE: Camera needs to be mounted as a webcam
 def getCamImage():
+    """
+    Get the image from the connected camera, passes back as a mat in RGB
+    NOTE: Camera needs to be mounted as a webcamera
+        might need to do mount baxter camera in this function
+    """
     cap = cv2.VideoCapture(0)
     i = 0
     while i < 10:
@@ -114,8 +124,10 @@ def getCamImage():
     return facemat
 
 
-# Tests to help check if the vision system worked correctly
 def basicTests(facecode):
+    """
+    Tests to help check if the colour values from the vision system worked correctly
+    """
     # assigns each list entry to its corresponding face variable
     f = facecode[0]
     b = facecode[1]
@@ -153,8 +165,11 @@ def basicTests(facecode):
     return True
 
 
-# Converts to Singmaster notation and orders the faces correctly
 def toSingmaster(facevs):
+    """
+    Converts face colour values from the colours into face notation
+    Outputs as a string in the order required for Cube Explorer
+    """
     front = facevs[0]
     back = facevs[1]
     up = facevs[2]
@@ -176,8 +191,11 @@ def toSingmaster(facevs):
     return faceSing
 
 
-# Sends face encoding to Cube Explorer
 def sendFaceCoding(faceString):
+    """
+    Sends faceString to the Cube Explorer
+    Returns the manouvers without the html encoding
+    """
     # Define loop to allow a timeout
     loop = 6
     # Try send data to Cube Explorer
@@ -212,8 +230,10 @@ def sendFaceCoding(faceString):
     return data.split()
 
 
-########## MAIN ##########
 def main():
+    """
+    ########## MAIN ##########
+    """
     # check if Cube Explorer is running or not
     print('Checking status:'),
     status = checkStatus()
@@ -290,8 +310,10 @@ def main():
     return True
 
 
-# Function to allow tests of an individual function without running main
 def debugger():
+    """
+    Allows running individual functions without running main
+    """
     # list all functions, take respective input to run
     print('#####COMMANDS#####')
     print('1 - checkStatus')
