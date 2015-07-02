@@ -13,6 +13,8 @@ from matplotlib import pyplot as plt
 #        -Began writing the change log
 #    30/06/2015:
 #        -Added .git for the project, all further changes are done through that.
+
+# try to change over to requests instead of urllib2, its much nicer
 ###############################################################################
 
 
