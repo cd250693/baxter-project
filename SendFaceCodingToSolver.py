@@ -7,13 +7,18 @@
 import requests
 import subprocess
 
-subprocess.call('Solver/cube512htm.exe')
+#subprocess.Popen('Solver/cube512htm.exe')
 
 # variable stores face encoding in Singmaster Notation
 FaceCode = 'BDRFUULULULULRDDRUBBFLFBDBBFDRRDBDURLRUDLFFURFRDFBLBFL'
 
-# send data to localhost 127.0.0.1 port 8081
-r = requests.get('http://127.0.0.1:8081/?' + FaceCode)
+### changed to use requests, changed over to the new error raised when having a connection error ###
+try:
+    # send data to localhost 127.0.0.1 port 8081
+    r = requests.get('http://127.0.0.1:8081/?' + FaceCode)
+except requests.exceptions.ConnectionError:
+    print('Cannot connect')
+
 
 # save data retrieved from the webserver
 data = r.content
