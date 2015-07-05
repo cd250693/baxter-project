@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 import subprocess
 import commands
-import urllib2
 import time
 import cv2
 import numpy as np
 import requests
+import argparse
 from matplotlib import pyplot as plt
 
 ###############################################################################
@@ -17,6 +17,16 @@ from matplotlib import pyplot as plt
 
 # try to change over to requests instead of urllib2, its much nicer
 ###############################################################################
+
+
+def parse_arguments():
+    """
+    Sets up argument parsing"""
+    parser = argparse.ArgumentParser(
+        description='Solve a Rubiks Cube using Baxter')
+    parser.add_argument('-d', '--debugger', action='store_true',
+        help='runs the debugger')
+    return parser.parse_args()
 
 
 def checkStatus():
@@ -126,7 +136,7 @@ def getCamImage():
 
 def basicTests(facecode):
     """
-    Tests to help check if the colour values from the vision system worked correctly
+    Tests to help check if the colour values are valid
     """
     # assigns each list entry to its corresponding face variable
     f = facecode[0]
@@ -202,10 +212,10 @@ def sendFaceCoding(faceString):
     while loop > 0:
         try:
             # save data from sending to localhost 127.0.0.1 port 8081
-            data = urllib2.urlopen('http://127.0.0.1:8081/?' + faceString)
-            data = data.read()
+            data = requests.get('http://127.0.0.1:8081/?' + faceString)
+            data = data.text
             break
-        except urllib2.URLError:
+        except requests.exceptions.ConnectionError:
             loop -= 1
         if loop == 5:
             print('waiting'),
@@ -219,7 +229,7 @@ def sendFaceCoding(faceString):
     data = data.replace('<HTML><BODY>\r\n', '')
     data = data.replace('\r\n</BODY></HTML>\r\n', '')
     # clears Cube Explorer's main window
-    urllib2.urlopen('http://127.0.0.1:8081/?' + 'clear')
+    requests.get('http://127.0.0.1:8081/?' + 'clear')
     # Returns the string as a list of manouvers
     if 'Cube cannot be solved.' in data:
         print(data)
@@ -234,6 +244,13 @@ def main():
     """
     ########## MAIN ##########
     """
+    args = parse_arguments()
+    if args.debugger:
+        debugger()
+        return True
+
+    print('-----START-----')
+
     # check if Cube Explorer is running or not
     print('Checking status:'),
     status = checkStatus()
@@ -241,7 +258,7 @@ def main():
         print('Not started')
         print('Starting solver:'),
         # Runs Cube Explorer
-        solver = subprocess.Popen('Solver/cube512htm.exe')
+        solver = subprocess.Popen('solver/cube512htm.exe')
         print('Done!')
     else:
         print('Already started')
@@ -253,15 +270,16 @@ def main():
     loop = 6
     while loop > 0:
         try:
-            urllib2.urlopen('http://127.0.0.1:8081/?status')
+            requests.get('http://127.0.0.1:8081/?status')
             print('Sucessful')
             break
-        except urllib2.URLError:
+        except requests.exceptions.ConnectionError:
             if loop == 5:
                 print('Waiting'),
             else:
                 print('.'),
             time.sleep(5)
+            loop += 1
     else:
         print('Couldnt connect')
         exitSolver(solver)
@@ -394,14 +412,6 @@ def debugger():
 # simply runs the main function. This allows main control code to be within
 # a function, reducing the risks of using the same variable names
 if __name__ == '__main__':
-    rundbger = raw_input('Run Debugger?(Y/N)')
-    if rundbger == 'y':
-        # allows easy of running programs for testing
-        debugger()
-        print('Exiting')
-    elif rundbger == 'n':
-        # beginning of program
-        print('-----START-----')
         result = main()
         if result is True:
             # end of program
@@ -409,5 +419,3 @@ if __name__ == '__main__':
         else:
         # error occured durring execution
             print('-----ERROR-----')
-    else:
-        print('Invalid input, Exiting')

@@ -22,7 +22,7 @@ except requests.exceptions.ConnectionError:
 
 
 # save data retrieved from the webserver
-data = r.content
+data = r.text
 
 # remove HTML encodings, carrige returns and new line pointers
 data = data.replace('<HTML><BODY>\r\n', '')
