@@ -14,9 +14,12 @@ FaceCode = 'BDRFUULULULULRDDRUBBFLFBDBBFDRRDBDURLRUDLFFURFRDFBLBFL'
 
 ### changed to use requests, changed over to the new error raised when having a connection error ###
 ## using requests instead of urllib2, requests is simpler to use
+
+connect_timeout = 10
+
 try:
     # send data to localhost 127.0.0.1 port 8081
-    r = requests.get('http://127.0.0.1:8081/?' + FaceCode)
+    r = requests.get(url=('http://127.0.0.1:8081/?' + FaceCode), timeout=(10, 10))
 except requests.exceptions.ConnectionError:
     print('Cannot connect')
 
