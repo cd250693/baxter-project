@@ -1,0 +1,23 @@
+var searchData=
+[
+  ['gaincompensator',['GainCompensator',['../d0/de1/classcv_1_1detail_1_1GainCompensator.html',1,'cv::detail']]],
+  ['gaussianmotionfilter',['GaussianMotionFilter',['../de/d06/classcv_1_1videostab_1_1GaussianMotionFilter.html',1,'cv::videostab']]],
+  ['generalizedhough',['GeneralizedHough',['../d7/dd4/classcv_1_1GeneralizedHough.html',1,'cv']]],
+  ['generalizedhoughballard',['GeneralizedHoughBallard',['../dc/d46/classcv_1_1GeneralizedHoughBallard.html',1,'cv']]],
+  ['generalizedhoughguil',['GeneralizedHoughGuil',['../d3/d20/classcv_1_1GeneralizedHoughGuil.html',1,'cv']]],
+  ['genericindex',['GenericIndex',['../db/d18/classcv_1_1flann_1_1GenericIndex.html',1,'cv::flann']]],
+  ['gfttdetector',['GFTTDetector',['../df/d21/classcv_1_1GFTTDetector.html',1,'cv']]],
+  ['globptr',['GlobPtr',['../d9/d77/structcv_1_1cudev_1_1GlobPtr.html',1,'cv::cudev']]],
+  ['globptrsz',['GlobPtrSz',['../de/d2e/structcv_1_1cudev_1_1GlobPtrSz.html',1,'cv::cudev']]],
+  ['gpumat',['GpuMat',['../d0/d60/classcv_1_1cuda_1_1GpuMat.html',1,'cv::cuda']]],
+  ['gpumat_5f',['GpuMat_',['../d3/d1c/classcv_1_1cudev_1_1GpuMat__.html',1,'cv::cudev']]],
+  ['graph',['Graph',['../dc/d4c/classcv_1_1detail_1_1Graph.html',1,'cv::detail']]],
+  ['graphcutseamfinder',['GraphCutSeamFinder',['../db/dda/classcv_1_1detail_1_1GraphCutSeamFinder.html',1,'cv::detail']]],
+  ['graphcutseamfinderbase',['GraphCutSeamFinderBase',['../d0/d03/classcv_1_1detail_1_1GraphCutSeamFinderBase.html',1,'cv::detail']]],
+  ['graphedge',['GraphEdge',['../d5/dca/structcv_1_1detail_1_1GraphEdge.html',1,'cv::detail']]],
+  ['gray2rgb',['Gray2RGB',['../df/d47/classcv_1_1cudev_1_1color__cvt__detail_1_1Gray2RGB.html',1,'']]],
+  ['gray_5fto_5fbgr_5ffunc',['GRAY_to_BGR_func',['../dd/da9/structcv_1_1cudev_1_1GRAY__to__BGR__func.html',1,'cv::cudev']]],
+  ['gray_5fto_5fbgra_5ffunc',['GRAY_to_BGRA_func',['../df/de3/structcv_1_1cudev_1_1GRAY__to__BGRA__func.html',1,'cv::cudev']]],
+  ['greater',['greater',['../d9/d1c/structcv_1_1cudev_1_1greater.html',1,'cv::cudev']]],
+  ['greater_5fequal',['greater_equal',['../dd/d08/structcv_1_1cudev_1_1greater__equal.html',1,'cv::cudev']]]
+];
