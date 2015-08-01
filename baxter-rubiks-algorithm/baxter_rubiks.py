@@ -84,18 +84,28 @@ class BaxterRubiks(object):
         # move cube to infront of baxter camera
             # placeholder for manouver ------------------------------
         # scan each face, storing the image in the corresponding CubeFace class
-
+            # get the face orientated towards the camera
+            # scan and save the image into each face instance
         # send face images to the vision system for analysis
-
+            # send the faces self.face_image to the vision system, save the results into self.cublet_colours
         # test the colours from the vision system
-
+        cube_colours = [front_face.cube_colours, back_face.cube_colours, left_face.cube_colours,
+                        right_face.cube_colours, up_face.cube_colours, down_face.cube_colours]
+        if self.colour_test(cube_colours):
+            logger.debug('cube colours test successful')
+        else:
+            logger.error('cube colours are invalid')
+            return False
         # convert the cube colours into singmaster notation
-
+        cube_colours_singmaster = self.convert_to_singmaster(cube_colours)
+        logger.debug('cube colours converted to singmaster notation')
         # send face encoding to Cube Explorer
-
+        cube_solver.send_solver_face_encoding(cube_colours_singmaster)
         # perform each manipulation
-
+            # placeholder for manipulations -----------------------------
         # place down rubiks cube
+            # placeholder for manipulations -----------------------------
+        # cleanup - exit cube explorer, disable baxter ect...
         logger.info('-----END-----')
 
     def convert_to_singmaster(self, cube_colours):  # needs changing when the cube_colours is ordered properly
@@ -152,7 +162,7 @@ class CubeExplorer(object):
     def __init__(self):
         # initialize the class variable solver, which will later be set to a
         # popen object.
-        solver = None
+        self.solver = None
 
     def check_solver_status(self):
         """
@@ -338,8 +348,8 @@ class CubeFace(object):
         get the middle colour, send back a string containing all the cubelet values
     """
     def __init__(self):
-        cubelet_colours = None
-        face_image = None
+        self.cubelet_colours = None
+        self.face_image = None
 
     def GetCentreCubletColour(self):
         return self.cubelet_colours[4]
