@@ -89,8 +89,8 @@ class BaxterRubiks(object):
         # send face images to the vision system for analysis
             # send the faces self.face_image to the vision system, save the results into self.cublet_colours
         # test the colours from the vision system
-        cube_colours = [front_face.cube_colours, back_face.cube_colours, left_face.cube_colours,
-                        right_face.cube_colours, up_face.cube_colours, down_face.cube_colours]
+        cube_colours = [front_face.cubelet_colours, back_face.cubelet_colours, left_face.cubelet_colours,
+                        right_face.cubelet_colours, up_face.cubelet_colours, down_face.cubelet_colours]
         if self.colour_test(cube_colours):
             logger.debug('cube colours test successful')
         else:
@@ -365,7 +365,7 @@ def parse_arguments():
     parser = argparse.ArgumentParser(prog='baxter-rubiks-algorithm',
                                      description=('Solves a rubiks cube using the baxter research ' +
                                                   'robot and a rubiks solver'),
-                                     formatter_class='argparse.RawTextHelpFormatter')
+                                     formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument('-v', '--verbose', action='store_true', help='increases verbosity')
     return parser.parse_args()
 
@@ -376,7 +376,7 @@ def main():
     """
     args = parse_arguments()
     cube_solve = BaxterRubiks(args.verbose)
-    cube_solve  # need to connect this to control function
+    cube_solve.solve_rubiks_cube()
 
 if __name__ == '__main__':
     main()
