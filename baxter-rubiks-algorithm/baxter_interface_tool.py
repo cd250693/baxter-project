@@ -4,7 +4,6 @@ import argparse
 import rospy
 
 import baxter_interface
-from baxter_interface import CHECK_VERSION
 from sensor_msgs.msg import Image
 
 import cv2
@@ -35,8 +34,8 @@ class BaxterInterfaceTool(object):
         # Create baxter_interface limb instances
         self.left_limb = baxter_interface.Limb('left')
         self.right_limb = baxter_interface.Limb('right')
-        self.grip_left = baxter_interface.Gripper('left', CHECK_VERSION)
-        self.grip_right = baxter_interface.Gripper('right', CHECK_VERSION)
+        self.left_gripper = baxter_interface.Gripper('left')
+        self.right_gripper = baxter_interface.Gripper('right')
 
         # Create limb positions container
         self.left_positions = list()
@@ -62,7 +61,7 @@ class BaxterInterfaceTool(object):
         """
         function to record the positions of the arms
         """
-        logger.info('recording positions')
+        logger.info('record positions begun')
         # Connect the navigator io signals to the callback functions
         # on scroll wheel press
         self.left_navigator_io.button0_changed.connect(self.record_position_left)
@@ -83,6 +82,7 @@ class BaxterInterfaceTool(object):
         self.right_naviagator_io.button0_changed.disconnect(self.record_position_right)
         self.left_navigator_io.button1_changed.disconnect(self.stop_recording)
         self.right_naviagator_io.button1_changed.disconnect(self.stop_recording)
+        logger.info('record prositions finished')
 
     def playback_positions(self):
         """
@@ -105,6 +105,66 @@ class BaxterInterfaceTool(object):
                 if rospy.is_shutdown():
                     break
                 self.right_limb.move_to_joint_positions(position, timeout=20.0)
+        logger.info('position playback finished')
+
+    def gripper_motions(self):
+        """
+        Class to close grippers, rotate several ways, then open again
+        Should cover all the gripper code requried for manipulations
+        """
+        logger.info('gripper motions begun')
+        if not rospy.is_shutdown():
+            logger.error('rospy was shutdown, exiting program')
+            return
+        # ----- Using left gripper now -----
+        logger.info('moving left gripper')
+        self.left_gripper.close()
+        rospy.sleep(1.0)
+        left_angles = self.left_limb.joint_angles()
+        # 90 clockwise
+        left_angles['left_w2'] = 1.57
+        self.left_limb.move_to_joint_positions(left_angles)
+        rospy.sleep(1.0)
+        # 90 anticlockwise
+        left_angles['left_w2'] = -1.57
+        self.left_limb.move_to_joint_positions(left_angles)
+        rospy.sleep(1.0)
+        # 180 clockwise
+        left_angles['left_w2'] = 3.14
+        self.left_limb.move_to_joint_positions(left_angles)
+        rospy.sleep(1.0)
+        # return to original position
+        left_angles['left_w2'] = 0.0
+        self.left_limb.move_to_joint_positions(left_angles)
+        rospy.sleep(1.0)
+        # Open gripper
+        self.left_gripper.open()
+        rospy.sleep(3.0)
+        # ----- Using right gripper now ----
+        logger.info('moving right gripper')
+        self.right_gripper.close()
+        rospy.sleep(1.0)
+        right_angles = self.right_limb.joint_angles()
+        # 90 clockwise
+        right_angles['right_w2'] = 1.57
+        self.right_limb.move_to_joint_positions(right_angles)
+        rospy.sleep(1.0)
+        # 90 anticlockwise
+        right_angles['right_w2'] = -1.57
+        self.right_limb.move_to_joint_positions(right_angles)
+        rospy.sleep(1.0)
+        # 180 clockwise
+        right_angles['right_w2'] = 3.14
+        self.right_limb.move_to_joint_positions(right_angles)
+        rospy.sleep(1.0)
+        # return to original position
+        right_angles['right_w2'] = 0.0
+        self.right_limb.move_to_joint_positions(right_angles)
+        rospy.sleep(1.0)
+        # Open gripper
+        self.right_gripper.open()
+        rospy.sleep(3.0)
+        logger.info('gripper motions finished')
 
     def setup_logger(self, loggerlevel):
         """
@@ -120,12 +180,14 @@ class BaxterInterfaceTool(object):
         """
         Send the image specified to the baxter head screen
         """
+        logger.info('send image begun')
         img = cv2.imread(self.img_path)
         msg = cv_bridge.CvBridge().cv2_to_imgmsg(img, encoding='bgr8')
         pub = rospy.Publisher('/robot/xdisplay', Image, latch=True, queue_side=1)
         pub.publish(msg)
         #Sleep to allow the image to be published
         rospy.sleep(1)
+        logger.info('send image finished')
 
     def record_position_left(self, value):
         """
@@ -175,11 +237,13 @@ def main():
     """
     Gets command line arguments, creates a BaxterInterfaceTool object and run control function
     """
+    logger.info('baxter interface tools begun')
     args = parse_arguments()
     baxter_interface_tool = BaxterInterfaceTool(args.verbose)
     baxter_interface_tool.send_image()
     baxter_interface_tool.record_positions()
     baxter_interface_tool.playback_positions()
+    logger.info('baxter interface tools finished')
 
 
 if __name__ == '__main__':
