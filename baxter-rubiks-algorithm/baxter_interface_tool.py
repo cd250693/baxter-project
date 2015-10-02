@@ -18,14 +18,12 @@ class BaxterInterfaceTool(object):
     creating the manipulations
     """
 
-    def __init__(self, loglevel):
+    def __init__(self):
         """
         initializes the object
         """
-        self.loglevel = loglevel
-
         # Initialize the rospy node
-        logger.info('initializing node')
+        logger.info('Initializing node')
         rospy.init_node('baxter_interface_tool')
         # Register the clean shutdown function, which is called before
         # shutting down
@@ -113,68 +111,60 @@ class BaxterInterfaceTool(object):
         Should cover all the gripper code requried for manipulations
         """
         logger.info('gripper motions begun')
-        if not rospy.is_shutdown():
+        if rospy.is_shutdown():
             logger.error('rospy was shutdown, exiting program')
             return
         # ----- Using left gripper now -----
+        self.left_gripper.calibrate()
         logger.info('moving left gripper')
         self.left_gripper.close()
-        rospy.sleep(1.0)
+        rospy.sleep(0.5)
         left_angles = self.left_limb.joint_angles()
         # 90 clockwise
         left_angles['left_w2'] = 1.57
         self.left_limb.move_to_joint_positions(left_angles)
-        rospy.sleep(1.0)
+        rospy.sleep(0.5)
         # 90 anticlockwise
         left_angles['left_w2'] = -1.57
         self.left_limb.move_to_joint_positions(left_angles)
-        rospy.sleep(1.0)
+        rospy.sleep(0.5)
         # 180 clockwise
         left_angles['left_w2'] = 3.14
         self.left_limb.move_to_joint_positions(left_angles)
-        rospy.sleep(1.0)
+        rospy.sleep(0.5)
         # return to original position
         left_angles['left_w2'] = 0.0
         self.left_limb.move_to_joint_positions(left_angles)
-        rospy.sleep(1.0)
+        rospy.sleep(0.5)
         # Open gripper
         self.left_gripper.open()
         rospy.sleep(3.0)
         # ----- Using right gripper now ----
+        self.right_gripper.calibrate()
         logger.info('moving right gripper')
         self.right_gripper.close()
-        rospy.sleep(1.0)
+        rospy.sleep(0.5)
         right_angles = self.right_limb.joint_angles()
         # 90 clockwise
         right_angles['right_w2'] = 1.57
         self.right_limb.move_to_joint_positions(right_angles)
-        rospy.sleep(1.0)
+        rospy.sleep(0.5)
         # 90 anticlockwise
         right_angles['right_w2'] = -1.57
         self.right_limb.move_to_joint_positions(right_angles)
-        rospy.sleep(1.0)
+        rospy.sleep(0.5)
         # 180 clockwise
         right_angles['right_w2'] = 3.14
         self.right_limb.move_to_joint_positions(right_angles)
-        rospy.sleep(1.0)
+        rospy.sleep(0.5)
         # return to original position
         right_angles['right_w2'] = 0.0
         self.right_limb.move_to_joint_positions(right_angles)
-        rospy.sleep(1.0)
+        rospy.sleep(0.5)
         # Open gripper
         self.right_gripper.open()
         rospy.sleep(3.0)
         logger.info('gripper motions finished')
-
-    def setup_logger(self, loggerlevel):
-        """
-        Sets up the logging with the specified loggerlevel
-        """
-        logformat = '%(asctime)s:%(message)s'
-        if loggerlevel:
-            logging.basicConfig(level=logging.DEBUG, format=logformat)
-        else:
-            logging.basicConfig(level=logging.INFO, format=logformat)
 
     def send_image(self):
         """
@@ -183,7 +173,7 @@ class BaxterInterfaceTool(object):
         logger.info('send image begun')
         img = cv2.imread(self.img_path)
         msg = cv_bridge.CvBridge().cv2_to_imgmsg(img, encoding='bgr8')
-        pub = rospy.Publisher('/robot/xdisplay', Image, latch=True, queue_side=1)
+        pub = rospy.Publisher('/robot/xdisplay', Image, latch=True, queue_size=1)
         pub.publish(msg)
         #Sleep to allow the image to be published
         rospy.sleep(1)
@@ -233,16 +223,32 @@ def parse_arguments():
     return parser.parse_args()
 
 
+def setup_logger(loggerlevel):
+        """
+        Sets up the logging with the specified loggerlevel
+        """
+        logformat = '[%(levelname)s] %(asctime)s: %(message)s'
+        dateformat = '%H:%M:%S'
+        if loggerlevel:
+            logging.basicConfig(level=logging.DEBUG, format=logformat,
+                                datefmt=dateformat)
+        else:
+            logging.basicConfig(level=logging.INFO, format=logformat,
+                                datefmt=dateformat)
+
+
 def main():
     """
     Gets command line arguments, creates a BaxterInterfaceTool object and run control function
     """
-    logger.info('baxter interface tools begun')
     args = parse_arguments()
-    baxter_interface_tool = BaxterInterfaceTool(args.verbose)
+    setup_logger(args.verbose)
+    baxter_interface_tool = BaxterInterfaceTool()
+    logger.info('baxter interface tools begun')
     baxter_interface_tool.send_image()
-    baxter_interface_tool.record_positions()
-    baxter_interface_tool.playback_positions()
+    # baxter_interface_tool.record_positions()
+    # baxter_interface_tool.playback_positions()
+    baxter_interface_tool.gripper_motions()
     logger.info('baxter interface tools finished')
 
 
