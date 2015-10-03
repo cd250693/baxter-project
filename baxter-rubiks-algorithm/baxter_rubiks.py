@@ -10,6 +10,11 @@ from matplotlib import pyplot as plt
 import logging
 from collections import Counter
 
+import rospy
+import baxter_interface
+from sensor_msgs.msg import Image
+import cv_bridge
+
 logger = logging.getLogger(__name__)
 logging.getLogger('requests').setLevel(logging.WARNING)
 
@@ -25,7 +30,7 @@ logging.getLogger('requests').setLevel(logging.WARNING)
 # --------------------------------------------------------------------------------
 # VisionAnalysis: get images from camera, general vision system manipulations
 # --------------------------------------------------------------------------------
-# Manipulations: pickup cube, scan faces (one for each face?), face manipulations, place cube back down
+# Baxter: controls communication and commands for baxter
 # --------------------------------------------------------------------------------
 # CubeFace: contains variables for each face cubie value (on instance per face)
 # --------------------------------------------------------------------------------
@@ -65,8 +70,7 @@ class BaxterRubiks(object):
         # create required instances of each class
         cube_solver = CubeExplorer()
         vision_system = VisionAnalysis()
-        baxter_left_arm = Manipulations()
-        baxter_right_arm = Manipulations()
+        baxter = Baxter()
         front_face = CubeFace()
         back_face = CubeFace()
         up_face = CubeFace()
@@ -333,13 +337,46 @@ class VisionAnalysis(object):
         return frontvs, backvs, upvs, downvs, leftvs, rightvs
 
 
-class Manipulations(object):
+class Baxter(object):
     """
     Controls Baxters arms while manipulating the cube.
     Functions will include: get the cube, place back the cube,
                             scan the cubes faces, roate the cube faces
                             rotate the cube itself, move cube to a central area
     """
+    def __init__(self):
+        """
+        Initializes rospy nodes and enables the robot
+        """
+        # Initialize the rospy node
+        logger.info('Initializing node')
+        rospy.init_node('baxter_rubiks')
+        # Register clean shutdown function, called before rospy shuts down
+        rospy.on_shutdown(self.clean_shutdown)
+
+        # Create limb instances
+        self.limb_left = baxter_interface.Limb('left')
+        self.limb_right = baxter_interface.Limb('right')
+        self.gripper_left = baxter_interface.Gripper('left')
+        self.gripper_right = baxter_interface.Gripper('right')
+
+        # Verify the robot is enabled
+        logger.info('Getting robot state')
+        self.robotstate = baxter_interface.RobotEnable()
+        self.initial_state = self.robotstate.state().enabled
+        logger.info('Enabling robot')
+        self.robotstate.enable()
+
+        # Image path to display on baxters face screen
+        self.img_path = 'rubiks_algorithm_image.jpg'
+
+    def clean_shutdown(self):
+        logger.info('Exiting clean')
+        if not self.initial_state:
+            logger.info('Disabling Robot')
+            self.robotstate.disable()
+        return True
+    # need to do some planning for this part now
 
 
 class CubeFace(object):
