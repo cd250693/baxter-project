@@ -9,7 +9,7 @@ from sensor_msgs.msg import Image
 import cv2
 import cv_bridge
 
-logger = logging
+logger = logging.getLogger(__name__)
 
 
 class BaxterInterfaceTool(object):
