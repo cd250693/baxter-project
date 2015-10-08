@@ -3,10 +3,10 @@ import subprocess
 import commands
 import time
 import cv2
-import numpy as np
+# import numpy as np
 import requests
 import argparse
-from matplotlib import pyplot as plt
+# from matplotlib import pyplot as plt
 import logging
 from collections import Counter
 
@@ -15,7 +15,7 @@ import baxter_interface
 from sensor_msgs.msg import Image
 import cv_bridge
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('baxterRubiks')
 logging.getLogger('requests').setLevel(logging.WARNING)
 
 
@@ -48,17 +48,18 @@ class BaxterRubiks(object):
         """
         initializes object
         """
-        self.loglevel = loglevel
+        self.change_logger_level(loglevel)
 
-    def setup_logger(self, loggerlevel):
+    def change_logger_level(self, loggerlevel):
         """
         Sets up the logging with the specified level
         """
-        logformat = '%(asctime)s: %(message)s'
         if loggerlevel:
-            logging.basicConfig(level=logging.DEBUG, format=logformat)
+            logger.setLevel('DEBUG')
+            logger.handlers[0].setLevel('DEBUG')
         else:
-            logging.basicConfig(level=logging.INFO, format=logformat)
+            logger.setLevel('INFO')
+            logger.handlers[0].setLevel('INFO')
 
     def solve_rubiks_cube(self):
         """
@@ -69,7 +70,8 @@ class BaxterRubiks(object):
 
         # create required instances of each class
         cube_solver = CubeExplorer()
-        vision_system = VisionAnalysis()
+        # not vision system ATM
+        # vision_system = VisionAnalysis()
         baxter = Baxter()
         front_face = CubeFace()
         back_face = CubeFace()
@@ -78,6 +80,8 @@ class BaxterRubiks(object):
         left_face = CubeFace()
         right_face = CubeFace()
         logger.debug('instances created')
+        # send the program image to baxters face
+        baxter.display_image()
         # run cube solver
         cube_solver.run_solver()
         # check the connection to Cube Explorer
@@ -253,6 +257,7 @@ class CubeExplorer(object):
             return manouvers.split()
 
 
+'''
 class VisionAnalysis(object):
     """
     Analyses images of cube faces and returns colour values
@@ -335,6 +340,7 @@ class VisionAnalysis(object):
         plt.show()
 
         return frontvs, backvs, upvs, downvs, leftvs, rightvs
+'''
 
 
 class Baxter(object):
@@ -349,7 +355,6 @@ class Baxter(object):
         Initializes rospy nodes and enables the robot
         """
         # Initialize the rospy node
-        logger.info('Initializing node')
         rospy.init_node('baxter_rubiks')
         # Register clean shutdown function, called before rospy shuts down
         rospy.on_shutdown(self.clean_shutdown)
@@ -367,16 +372,109 @@ class Baxter(object):
         logger.info('Enabling robot')
         self.robotstate.enable()
 
+        # Calibrate the grippers
+        self.gripper_left.calibrate()
+        self.gripper_right.calibrate()
+
         # Image path to display on baxters face screen
         self.img_path = 'rubiks_algorithm_image.jpg'
 
     def clean_shutdown(self):
+        """
+        Function for safely shutting the program down
+        """
         logger.info('Exiting clean')
         if not self.initial_state:
             logger.info('Disabling Robot')
             self.robotstate.disable()
         return True
-    # need to do some planning for this part now
+
+    def display_image(self):
+        """
+        Displys the image specified to baxters face/screen
+        """
+        logger.debug('sending image')
+        img = cv2.imread(self.img_path)
+        msg = cv_bridge.CvBridge().cv2_to_imgmsg(img, encoding='bgr8')
+        pub = rospy.Publisher('/robot/xdisplay', Image, latch=True, queue_size=1)
+        pub.publish(msg)
+        # Sleep to allow the image to publish
+        rospy.sleep(1)
+        logger.debug('send image completed')
+
+    def rotate_gripper(self, manouver):
+        """
+        Rotates the left gripper the ammount specified
+        manouver: the angle to rotate the gripper:
+        {face} = 90 degrees clockwise
+        {face}' = 90 degrees anticlockwise
+        {face}2 = 180 degrees clockwise
+        """
+        if rospy.is_shutdown():
+            logger.error('rospy was shutdown, exiting')
+            return
+        faceQuaterCW = ['F', 'B', 'L', 'R', 'U', 'D']
+        faceQuaterACW = ["F'", "B'", "L'", "R'", "U'", "D'"]
+        faceHalfCW = ['F2', 'B2', 'L2', 'R2', 'U2', 'D2']
+        joint_angles = self.limb_left.joint_angles()
+        if manouver in faceQuaterCW:
+            joint_angles['left_w2'] = 1.57
+        elif manouver in faceQuaterACW:
+            joint_angles['left_w2'] = -1.57
+        elif manouver in faceHalfCW:
+            joint_angles['left_w2'] = 3.14
+        else:
+            logger.error('invalid gripper manouver')
+            return False
+        logger.debug('moving to {}'.format(joint_angles))
+        self.limb_left.move_to_joint_positions(joint_angles)
+
+    def rotate_cube(self, completed_move, next_move):
+        """
+        Rotates the cube so the required face is avaliable
+        completed_move = previous move done
+        next_move = current move to be performed
+        """
+        # Will need to define 30? manouvers
+
+    def pickup_cube(self):
+        """
+        Picks up the cube from the preset position
+        """
+        if rospy.is_shutdown():
+            logger.error('rospy was shutdown, exiting')
+            return
+        # Define the angles for the 3 positions needed
+        angles_pickup = {'right_e0': -0.4506068559265137,
+                         'right_e1': 0.8179952542053224,
+                         'right_s0': 1.034286545050049,
+                         'right_s1': -0.5537670637939454,
+                         'right_w0': 0.3501311144348145,
+                         'right_w1': 1.3583399861206056,
+                         'right_w2': 1.4699370883117677}
+
+        angles_above_pickup = {'right_e0': -0.6043884297363281,
+                               'right_e1': 0.9046651686218262,
+                               'right_s0': 1.138213743310547,
+                               'right_s1': -0.7094661135864259,
+                               'right_w0': 0.37083985504760747,
+                               'right_w1': 1.4150972752075197,
+                               'right_w2': 1.4776069922424317}
+
+        angles_centered = {'right_e0': -0.2803349886657715,
+                           'right_e1': 2.0942672682678225,
+                           'right_s0': 0.6810874690429688,
+                           'right_s1': -0.39231558605346684,
+                           'right_w0': 1.3602574621032715,
+                           'right_w1': 1.8058788804748536,
+                           'right_w2': -1.7648448944458008}
+        logger.info('picking up the rubiks cube')
+        self.limb_right.move_to_joint_positions(angles_above_pickup)
+        self.gripper_right.open()
+        self.limb_right.move_to_joint_positions(angles_pickup)
+        self.gripper_right.close()
+        self.limb_right.move_to_joint_positions(angles_above_pickup)
+        self.limb_right.move_to_joint_positions(angles_centered)
 
 
 class CubeFace(object):
@@ -385,8 +483,8 @@ class CubeFace(object):
         get the middle colour, send back a string containing all the cubelet values
     """
     def __init__(self):
-        self.cubelet_colours = None
-        self.face_image = None
+        self.cubelet_colours = list
+        self.face_image = list
 
     def GetCentreCubletColour(self):
         return self.cubelet_colours[4]
