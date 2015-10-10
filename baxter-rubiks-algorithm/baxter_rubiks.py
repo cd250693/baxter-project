@@ -9,6 +9,7 @@ import argparse
 # from matplotlib import pyplot as plt
 import logging
 from collections import Counter
+import math
 
 import rospy
 import baxter_interface
@@ -137,7 +138,13 @@ class BaxterRubiks(object):
         # combines face colour strings into one string
         cube_colours_joined = ''.join(cube_colours)
         # replaces colour letter with its corresponding face letter
-        cube_colours_singmaster = cube_colours_joined.replace(front_colour, 'f').replace(back_colour, 'b').replace(up_colour, 'u').replace(down_colour, 'd').replace(left_colour, 'l').replace(right_colour, 'r')
+        cube_colours_singmaster = cube_colours_joined.replace(
+            front_colour, 'f').replace(
+            back_colour, 'b').replace(
+            up_colour, 'u').replace(
+            down_colour, 'd').replace(
+            left_colour, 'l').replace(
+            right_colour, 'r')
         return cube_colours_singmaster
 
     def colour_test(self, cube_colours):
@@ -257,6 +264,386 @@ class CubeExplorer(object):
             return manouvers.split()
 
 
+class Baxter(object):
+    """
+    Controls Baxters arms while manipulating the cube.
+    Functions will include: get the cube, place back the cube,
+                            scan the cubes faces, roate the cube faces
+                            rotate the cube itself, move cube to a central area
+    """
+    def __init__(self):
+        """
+        Initializes rospy nodes and enables the robot
+        """
+        # Initialize the rospy node
+        rospy.init_node('baxter_rubiks')
+        # Register clean shutdown function, called before rospy shuts down
+        rospy.on_shutdown(self.clean_shutdown)
+
+        # Create limb instances
+        self.limb_left = baxter_interface.Limb('left')
+        self.limb_right = baxter_interface.Limb('right')
+        self.gripper_left = baxter_interface.Gripper('left')
+        self.gripper_right = baxter_interface.Gripper('right')
+
+        # Verify the robot is enabled
+        logger.info('Getting robot state')
+        self.robotstate = baxter_interface.RobotEnable()
+        self.initial_state = self.robotstate.state().enabled
+        logger.info('Enabling robot')
+        self.robotstate.enable()
+
+        # Move both arms into the centre position
+        self.limb_left.move_to_joint_positions(left_centred)
+        rospy.sleep(0.5)
+        self.limb_right.move_to_joint_positions(right_centred)
+        rospy.sleep(0.5)
+
+        # Calibrate the grippers
+        self.gripper_left.calibrate()
+        self.gripper_right.calibrate()
+
+        # Image path to display on baxters face screen
+        self.img_path = 'rubiks_algorithm_image.jpg'
+
+        # joint angles for the position to pick up the cube
+        self.cube_pickup = {
+            'right_e0': -0.7669903930664063,
+            'right_e1': 0.8007379703613282,
+            'right_s0': 1.2172137537963867,
+            'right_s1': -0.4421699616027832,
+            'right_w0': 0.6803204786499024,
+            'right_w1': 1.432738054248047,
+            'right_w2': -0.120800986907959}
+
+        # joint angles for position above the cube
+        self.above_cube_pickup = {
+            'right_e0': -0.33402431618041994,
+            'right_e1': 0.832568071673584,
+            'right_s0': 1.0538448000732423,
+            'right_s1': -0.6876068873840332,
+            'right_w0': 0.26461168560791015,
+            'right_w1': 1.4638011651672365,
+            'right_w2': -0.016490293450927736}
+
+        # joint angles for right limb central and cube positions
+        self.right_centred = {
+            'right_e0': -0.6369855214416504,
+            'right_e1': 2.139136206262207,
+            'right_s0': 0.8716845817199708,
+            'right_s1': -0.9875001310729982,
+            'right_w0': 1.3077186201782227,
+            'right_w1': 2.089665325909424,
+            'right_w2': -1.1757962725708009}
+
+        self.right_cube = {
+            'right_e0': -0.11926700612182618,
+            'right_e1': 2.259937193170166,
+            'right_s0': 0.607839886505127,
+            'right_s1': -1.145883647241211,
+            'right_w0': 1.36485940446167,
+            'right_w1': 1.746053629815674,
+            'right_w2': -1.1727283109985351}
+
+        # joint angles for left limb central and cube positions
+        self.left_centred = {
+            'left_e0': -0.33785926814575196,
+            'left_e1': 2.086213869140625,
+            'left_s0': -0.10584467424316407,
+            'left_s1': -1.0837574254028322,
+            'left_w0': -1.125174906628418,
+            'left_w1': 1.6751070184570314,
+            'left_w2': -0.645422415765381}
+
+        self.left_cube = {}
+
+        # joint angles for left limb face manipulation position
+        self.left_face_rotation = {
+            'left_e0': -0.33172334500122075,
+            'left_e1': 2.148340090979004,
+            'left_s0': -0.2546408104980469,
+            'left_s1': -1.1201894690734864,
+            'left_w0': -1.2275681241027834,
+            'left_w1': 1.601092445526123,
+            'left_w2': -0.645422415765381}
+
+        # angles for left arm rotating faces
+        self.joint_left_face_rotation = {}
+        # angles for left arm quater cube turn flat
+        self.joint_left_cube_flat_rotation = {}
+        # angles for left arm quater turn up
+        self.joint_left_cube_up_rotation = {}
+        # angles for left are quater turn down
+        self.joint_left_cube_down_rotation = {}
+        # left arm position for rotating the cube up/down
+        self.joint_left_arm_down = {
+            'right_e0': -0.6369855214416504,
+            'right_e1': 2.139136206262207,
+            'right_s0': 0.8716845817199708,
+            'right_s1': -0.9875001310729982,
+            'right_w0': 1.3077186201782227,
+            'right_w1': 2.089665325909424,
+            'right_w2': -1.1757962725708009}
+
+    def clean_shutdown(self):
+        """
+        Function for safely shutting the program down
+        """
+        logger.info('Exiting clean')
+        if not self.initial_state:
+            logger.info('Disabling Robot')
+            self.robotstate.disable()
+        return True
+
+    def display_image(self):
+        """
+        Displys the image specified to baxters face/screen
+        """
+        logger.debug('sending image')
+        img = cv2.imread(self.img_path)
+        msg = cv_bridge.CvBridge().cv2_to_imgmsg(img, encoding='bgr8')
+        pub = rospy.Publisher('/robot/xdisplay', Image, latch=True, queue_size=1)
+        pub.publish(msg)
+        # Sleep to allow the image to publish
+        rospy.sleep(1)
+        logger.debug('send image completed')
+
+    def perform_manouver(self, previous_manouver, current_manouver):
+        """
+        Performs the manouver sent to it.
+        previous_manouver: the manouver that was just performed
+        current_manouver: the manouver that is to be performed next
+        """
+        # rotate the cube to show the correct face
+        if self.rotate_cube(previous_manouver[0], current_manouver[0]) is False:
+            logger.error('error durring cube rotation')
+            return False
+        # move the left limb into position
+        self.limb_left.move_to_joint_positions(left_face_rotation)
+        # rotate the face
+        if self.rotate_face(current_manouver) is False:
+            logger.error('error durring face rotation')
+            return False
+        # move the left limb away
+        self.left_centred['left_w2'] = self.limb_left.joint_angle('left_w2')
+        self.limb_left.move_to_joint_positions(self.left_centred)
+        rospy.sleep(0.5)
+        self.left_centred['left_w2'] = -0.645422415765381
+        self.limb_left.move_to_joint_positions(self.left_centred)
+        rospy.sleep(0.5)
+        logger.debug('manouver {} performed'.format(current_manouver))
+
+    def rotate_face(self, rotation):
+        """
+        Rotates the left gripper to move the face the ammount specified
+        rotation: the angle to rotate the face:
+        {face} = 90 degrees clockwise
+        {face}' = 90 degrees anticlockwise
+        {face}2 = 180 degrees clockwise
+        example: rotation = "F2" is rotate the face 90 degrees clockwise
+        """
+        if rospy.is_shutdown():
+            logger.error('rospy was shutdown, exiting rotate_gripper')
+            return
+        joint_angles = self.limb_left.joint_angles()
+        if len(rotation) == 1:
+            joint_angles['left_w2'] += math.pi / 2
+        elif rotation[1] == "'":
+            joint_angles['left_w2'] -= math.pi / 2
+        elif rotation[1] == '2':
+            joint_angles['left_w2'] += math.pi
+        else:
+            logger.error('invalid gripper rotation')
+            return False
+        logger.debug('moving to {}'.format(joint_angles))
+        self.gripper_left.close()
+        rospy.sleep(0.5)
+        self.limb_left.move_to_joint_positions(joint_angles)
+        rospy.sleep(0.5)
+        self.gripper_left.open()
+        rospy.sleep(0.5)
+
+    def rotate_cube(self, current_face, next_face):
+        """
+        Rotates the cube so the required face is avaliable
+        current_face = the current face that is in position
+        next_face = the next face that needs to be in position
+        returns False on error
+        """
+        if rospy.is_shutdown():
+            logger.error('rospy was shutdown, exiting rotate_cube')
+            return
+        # face relationships asuming a flat spin of the cube
+        face_relations = {'quaterturnCW': ['FR', 'RB', 'BL', 'LF'],
+                          'quaterturnACW': ['FL', 'LB', 'BR', 'RF'],
+                          'halfturnCW': ['FB', 'RL', 'BF', 'LR']}
+        moves_combined = current_face[0] + next_face[0]
+        if moves_combined in face_relations['quaterturnCW']:
+            # rotate the cube flat clockwise
+            # move close to the cube
+            rospy.sleep(0.5)
+            # close the left gripper
+            self.gripper_left.close()
+            rospy.sleep(0.5)
+            # open the right gripper
+            self.gripper_right.open()
+            rospy.sleep(0.5)
+            # rotate the cube a quater turn clockwise
+            rospy.sleep(0.5)
+            # close the right gripper
+            self.gripper_right.close()
+            rospy.sleep(0.5)
+            # open the left gripper
+            self.gripper_left.open()
+            rospy.sleep(0.5)
+
+        elif moves_combined in face_relations['quaterturnACW']:
+            # rotate the cube flat anticlockwise
+            # move close to the cube
+            rospy.sleep(0.5)
+            # close the left gripper
+            self.gripper_left.close()
+            rospy.sleep(0.5)
+            # open the right gripper
+            self.gripper_right.open()
+            rospy.sleep(0.5)
+            # rotate the cube a quater turn anticlockwise
+            rospy.sleep(0.5)
+            # close the right gripper
+            self.gripper_right.close()
+            rospy.sleep(0.5)
+            # open the left gripper
+            self.gripper_left.open()
+            rospy.sleep(0.5)
+
+        elif moves_combined in face_relations['halfturnCW']:
+            # rotate the cube flat 180 clockwise
+            # move close to the cube
+            rospy.sleep(0.5)
+            # close the left gripper
+            self.gripper_left.close()
+            rospy.sleep(0.5)
+            # open the right gripper
+            self.gripper_right.open()
+            rospy.sleep(0.5)
+            # rotate the cube quater turn clockwise
+            rospy.sleep(0.5)
+            # close right gripper
+            self.gripper_right.open()
+            rospy.sleep(0.5)
+            # open left gripper
+            self.gripper_left.open()
+            rospy.sleep(0.5)
+            # return left arm to a central position
+            # move left arm close into gripper range
+            # close left gripper
+            self.gripper_left.close()
+            rospy.sleep(0.5)
+            # open right gripper
+            self.gripper_right.open()
+            rospy.sleep(0.5)
+            # move cube quater turn clockwise
+            rospy.sleep(0.5)
+            self.gripper_right.close()
+            rospy.sleep(0.5)
+            self.gripper_left.open()
+            # return left arm to central position
+            rospy.sleep(0.5)
+
+        elif moves_combined[1] == 'U':
+            # rotate the cube down, perform operation, then rotate back to flat
+            # either rotate the cube, or move the arm so its accessable
+        elif moves_combined[1] == 'D':
+            # rotate the cube up, perform the operation, then rotate back to flat
+        else:
+            logger.error('combined previous and current moves not valid')
+            return False
+
+    def pickup_cube(self):
+        """
+        Picks up the cube from the preset position
+        """
+        if rospy.is_shutdown():
+            logger.error('rospy was shutdown, exiting pickup_cube')
+            return
+        logger.info('picking up the rubiks cube')
+        self.limb_right.move_to_joint_positions(self.right_centred)
+        rospy.sleep(0.5)
+        self.limb_right.move_to_joint_positions(self.above_cube_pickup)
+        rospy.sleep(0.5)
+        self.gripper_right.open()
+        rospy.sleep(0.5)
+        self.limb_right.move_to_joint_positions(self.cube_pickup)
+        rospy.sleep(0.5)
+        self.gripper_right.close()
+        rospy.sleep(0.5)
+        self.limb_right.move_to_joint_positions(self.above_cube_pickup)
+        rospy.sleep(0.5)
+        self.limb_right.move_to_joint_positions(self.right_centred)
+        rospy.sleep(0.5)
+        logger.debug('pick up cube ended')
+
+    def putdown_cube(self):
+        """
+        Places the cube back after its finished
+        """
+        if rospy.is_shutdown():
+            logger.error('rospy was shutdown, exiting putdown_cube')
+            return
+        logger.info('putting down the rubiks cube')
+        self.limb_right.move_to_joint_positions(self.angles_above_pickup)
+        rospy.sleep(0.5)
+        self.limb_right.move_to_joint_positions(self.angles_pickup)
+        rospy.sleep(0.5)
+        self.gripper_right.open()
+        rospy.sleep(0.5)
+        self.limb_right.move_to_joint_positions(self.angles_above_pickup)
+        rospy.sleep(0.5)
+        self.limb_right.move_to_joint_positions(self.angles_centered)
+        rospy.sleep(0.5)
+        logger.debug('putdown cube ended')
+
+
+class CubeFace(object):
+    """
+    A class for variable storage along with relevant functions:
+        get the middle colour, send back a string containing all the cubelet values
+    """
+    def __init__(self):
+        self.cubelet_colours = list
+        self.face_image = list
+
+    def GetCentreCubletColour(self):
+        return self.cubelet_colours[4]
+
+    def ReturnFaceColours(self):
+        return self.cubelet_colours
+
+
+def parse_arguments():
+    """
+    sets up argument parsing
+    """
+    parser = argparse.ArgumentParser(prog='baxter-rubiks-algorithm',
+                                     description=('Solves a rubiks cube using the baxter research ' +
+                                                  'robot and a rubiks solver'),
+                                     formatter_class=argparse.RawTextHelpFormatter)
+    parser.add_argument('-v', '--verbose', action='store_true', help='increases verbosity')
+    return parser.parse_args()
+
+
+def main():
+    """
+    Gets command line arguments, creates a BaxterRubiks object and runs the control function
+    """
+    args = parse_arguments()
+    cube_solve = BaxterRubiks(args.verbose)
+    cube_solve.solve_rubiks_cube()
+
+if __name__ == '__main__':
+    main()
+
+
 '''
 class VisionAnalysis(object):
     """
@@ -341,177 +728,3 @@ class VisionAnalysis(object):
 
         return frontvs, backvs, upvs, downvs, leftvs, rightvs
 '''
-
-
-class Baxter(object):
-    """
-    Controls Baxters arms while manipulating the cube.
-    Functions will include: get the cube, place back the cube,
-                            scan the cubes faces, roate the cube faces
-                            rotate the cube itself, move cube to a central area
-    """
-    def __init__(self):
-        """
-        Initializes rospy nodes and enables the robot
-        """
-        # Initialize the rospy node
-        rospy.init_node('baxter_rubiks')
-        # Register clean shutdown function, called before rospy shuts down
-        rospy.on_shutdown(self.clean_shutdown)
-
-        # Create limb instances
-        self.limb_left = baxter_interface.Limb('left')
-        self.limb_right = baxter_interface.Limb('right')
-        self.gripper_left = baxter_interface.Gripper('left')
-        self.gripper_right = baxter_interface.Gripper('right')
-
-        # Verify the robot is enabled
-        logger.info('Getting robot state')
-        self.robotstate = baxter_interface.RobotEnable()
-        self.initial_state = self.robotstate.state().enabled
-        logger.info('Enabling robot')
-        self.robotstate.enable()
-
-        # Calibrate the grippers
-        self.gripper_left.calibrate()
-        self.gripper_right.calibrate()
-
-        # Image path to display on baxters face screen
-        self.img_path = 'rubiks_algorithm_image.jpg'
-
-    def clean_shutdown(self):
-        """
-        Function for safely shutting the program down
-        """
-        logger.info('Exiting clean')
-        if not self.initial_state:
-            logger.info('Disabling Robot')
-            self.robotstate.disable()
-        return True
-
-    def display_image(self):
-        """
-        Displys the image specified to baxters face/screen
-        """
-        logger.debug('sending image')
-        img = cv2.imread(self.img_path)
-        msg = cv_bridge.CvBridge().cv2_to_imgmsg(img, encoding='bgr8')
-        pub = rospy.Publisher('/robot/xdisplay', Image, latch=True, queue_size=1)
-        pub.publish(msg)
-        # Sleep to allow the image to publish
-        rospy.sleep(1)
-        logger.debug('send image completed')
-
-    def rotate_gripper(self, manouver):
-        """
-        Rotates the left gripper the ammount specified
-        manouver: the angle to rotate the gripper:
-        {face} = 90 degrees clockwise
-        {face}' = 90 degrees anticlockwise
-        {face}2 = 180 degrees clockwise
-        """
-        if rospy.is_shutdown():
-            logger.error('rospy was shutdown, exiting')
-            return
-        faceQuaterCW = ['F', 'B', 'L', 'R', 'U', 'D']
-        faceQuaterACW = ["F'", "B'", "L'", "R'", "U'", "D'"]
-        faceHalfCW = ['F2', 'B2', 'L2', 'R2', 'U2', 'D2']
-        joint_angles = self.limb_left.joint_angles()
-        if manouver in faceQuaterCW:
-            joint_angles['left_w2'] = 1.57
-        elif manouver in faceQuaterACW:
-            joint_angles['left_w2'] = -1.57
-        elif manouver in faceHalfCW:
-            joint_angles['left_w2'] = 3.14
-        else:
-            logger.error('invalid gripper manouver')
-            return False
-        logger.debug('moving to {}'.format(joint_angles))
-        self.limb_left.move_to_joint_positions(joint_angles)
-
-    def rotate_cube(self, completed_move, next_move):
-        """
-        Rotates the cube so the required face is avaliable
-        completed_move = previous move done
-        next_move = current move to be performed
-        """
-        # Will need to define 30? manouvers
-
-    def pickup_cube(self):
-        """
-        Picks up the cube from the preset position
-        """
-        if rospy.is_shutdown():
-            logger.error('rospy was shutdown, exiting')
-            return
-        # Define the angles for the 3 positions needed
-        angles_pickup = {'right_e0': -0.4506068559265137,
-                         'right_e1': 0.8179952542053224,
-                         'right_s0': 1.034286545050049,
-                         'right_s1': -0.5537670637939454,
-                         'right_w0': 0.3501311144348145,
-                         'right_w1': 1.3583399861206056,
-                         'right_w2': 1.4699370883117677}
-
-        angles_above_pickup = {'right_e0': -0.6043884297363281,
-                               'right_e1': 0.9046651686218262,
-                               'right_s0': 1.138213743310547,
-                               'right_s1': -0.7094661135864259,
-                               'right_w0': 0.37083985504760747,
-                               'right_w1': 1.4150972752075197,
-                               'right_w2': 1.4776069922424317}
-
-        angles_centered = {'right_e0': -0.2803349886657715,
-                           'right_e1': 2.0942672682678225,
-                           'right_s0': 0.6810874690429688,
-                           'right_s1': -0.39231558605346684,
-                           'right_w0': 1.3602574621032715,
-                           'right_w1': 1.8058788804748536,
-                           'right_w2': -1.7648448944458008}
-        logger.info('picking up the rubiks cube')
-        self.limb_right.move_to_joint_positions(angles_above_pickup)
-        self.gripper_right.open()
-        self.limb_right.move_to_joint_positions(angles_pickup)
-        self.gripper_right.close()
-        self.limb_right.move_to_joint_positions(angles_above_pickup)
-        self.limb_right.move_to_joint_positions(angles_centered)
-
-
-class CubeFace(object):
-    """
-    A class for variable storage along with relevant functions:
-        get the middle colour, send back a string containing all the cubelet values
-    """
-    def __init__(self):
-        self.cubelet_colours = list
-        self.face_image = list
-
-    def GetCentreCubletColour(self):
-        return self.cubelet_colours[4]
-
-    def ReturnFaceColours(self):
-        return self.cubelet_colours
-
-
-def parse_arguments():
-    """
-    sets up argument parsing
-    """
-    parser = argparse.ArgumentParser(prog='baxter-rubiks-algorithm',
-                                     description=('Solves a rubiks cube using the baxter research ' +
-                                                  'robot and a rubiks solver'),
-                                     formatter_class=argparse.RawTextHelpFormatter)
-    parser.add_argument('-v', '--verbose', action='store_true', help='increases verbosity')
-    return parser.parse_args()
-
-
-def main():
-    """
-    Gets command line arguments, creates a BaxterRubiks object and runs the control function
-    """
-    args = parse_arguments()
-    cube_solve = BaxterRubiks(args.verbose)
-    cube_solve.solve_rubiks_cube()
-
-if __name__ == '__main__':
-    main()
