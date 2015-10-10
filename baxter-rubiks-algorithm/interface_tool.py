@@ -9,6 +9,8 @@ from sensor_msgs.msg import Image
 import cv2
 import cv_bridge
 
+import math
+
 logger = logging.getLogger('baxterRubiks')
 
 
@@ -189,45 +191,115 @@ class BaxterInterfaceTool(object):
             logger.error('rospy was shutdown, exiting')
             return
         # Define the angles for the 3 positions needed
-        angles_pickup = {'right_e0': -0.6216457135803223,
- 'right_e1': 0.9157865293212891,
- 'right_s0': 1.136296267327881,
- 'right_s1': -0.5503156070251465,
- 'right_w0': 0.4621117118225098,
- 'right_w1': 1.3011992018371583,
- 'right_w2': -0.19174759826660157}
+         # angles for the position to pick up the cube
+        cube_pickup = {
+            'right_e0': -0.7669903930664063,
+            'right_e1': 0.8007379703613282,
+            'right_s0': 1.2172137537963867,
+            'right_s1': -0.4421699616027832,
+            'right_w0': 0.6803204786499024,
+            'right_w1': 1.432738054248047,
+            'right_w2': -0.120800986907959}
 
-        angles_above_pickup = {'right_e0': -0.21130585328979493,
- 'right_e1': 0.6734175651123048,
- 'right_s0': 0.9054321590148926,
- 'right_s1': -0.9226894428588868,
- 'right_w0': 0.19213109346313478,
- 'right_w1': 1.6935147878906252,
- 'right_w2': -0.13652428996582033}
+        # angles for position above the cube
+        above_cube_pickup = {
+            'right_e0': -0.33402431618041994,
+            'right_e1': 0.832568071673584,
+            'right_s0': 1.0538448000732423,
+            'right_s1': -0.6876068873840332,
+            'right_w0': 0.26461168560791015,
+            'right_w1': 1.4638011651672365,
+            'right_w2': -0.016490293450927736}
 
-        angles_centered = {'right_e0': -0.11926700612182618,
-                           'right_e1': 2.259937193170166,
-                           'right_s0': 0.607839886505127,
-                           'right_s1': -1.145883647241211,
-                           'right_w0': 1.36485940446167,
-                           'right_w1': 1.746053629815674,
-                           'right_w2': -1.1727283109985351}
+        # angles for a central position
+        right_centered = {
+            'right_e0': -0.11926700612182618,
+            'right_e1': 2.259937193170166,
+            'right_s0': 0.607839886505127,
+            'right_s1': -1.145883647241211,
+            'right_w0': 1.36485940446167,
+            'right_w1': 1.746053629815674,
+            'right_w2': -1.1727283109985351}
+
+        left_centred = {
+            'left_e0': -0.33785926814575196,
+            'left_e1': 2.086213869140625,
+            'left_s0': -0.10584467424316407,
+            'left_s1': -1.0837574254028322,
+            'left_w0': -1.125174906628418,
+            'left_w1': 1.6751070184570314,
+            'left_w2': -0.645422415765381}
+
+        left_face_rotation = {
+            'left_e0': -0.33172334500122075,
+            'left_e1': 2.148340090979004,
+            'left_s0': -0.2546408104980469,
+            'left_s1': -1.1201894690734864,
+            'left_w0': -1.2275681241027834,
+            'left_w1': 1.601092445526123,
+            'left_w2': -0.645422415765381}
+
         logger.info('picking up the rubiks cube')
-        self.limb_right.move_to_joint_positions(angles_centered)
-        rospy.sleep(3)
+        rospy.sleep(5)
+        self.limb_right.move_to_joint_positions(right_centered)
+        rospy.sleep(0.5)
         logger.info('moving to above pickup')
-        self.limb_right.move_to_joint_positions(angles_above_pickup)
-        rospy.sleep(3)
+        self.limb_right.move_to_joint_positions(above_cube_pickup)
+        rospy.sleep(0.5)
         self.gripper_right.open()
-        rospy.sleep(3)
-        self.limb_right.move_to_joint_positions(angles_pickup)
-        rospy.sleep(3)
+        rospy.sleep(0.5)
+        self.limb_right.move_to_joint_positions(cube_pickup)
+        rospy.sleep(0.5)
         self.gripper_right.close()
-        rospy.sleep(3)
-        self.limb_right.move_to_joint_positions(angles_above_pickup)
-        rospy.sleep(3)
-        self.limb_right.move_to_joint_positions(angles_centered)
-        rospy.sleep(3)
+        rospy.sleep(0.5)
+        self.limb_right.move_to_joint_positions(above_cube_pickup)
+        rospy.sleep(0.5)
+        self.limb_right.move_to_joint_positions(right_centered)
+        rospy.sleep(0.5)
+
+        self.limb_left.move_to_joint_positions(left_centred)
+        rospy.sleep(0.5)
+        self.limb_left.move_to_joint_positions(left_face_rotation)
+        rospy.sleep(0.5)
+
+        logger.debug('moving left gripper')
+        self.gripper_left.close()
+        rospy.sleep(0.5)
+        left_angles = self.limb_left.joint_angles()
+        # 90 clockwise
+        left_angles['left_w2'] += math.pi / 2
+        self.limb_left.move_to_joint_positions(left_angles)
+        rospy.sleep(0.5)
+        # 90 anticlockwise
+        left_angles['left_w2'] -= math.pi / 2
+        self.limb_left.move_to_joint_positions(left_angles)
+        rospy.sleep(0.5)
+        # 180 clockwise
+        left_angles['left_w2'] += math.pi
+        self.limb_left.move_to_joint_positions(left_angles)
+        rospy.sleep(0.5)
+        # Open gripper
+        self.gripper_left.open()
+        rospy.sleep(0.5)
+        left_centred['left_w2'] = self.limb_left.joint_angle('left_w2')
+        self.limb_left.move_to_joint_positions(left_centred)
+        rospy.sleep(0.5)
+        left_centred['left_w2'] = -0.645422415765381
+        self.limb_left.move_to_joint_positions(left_centred)
+        rospy.sleep(0.5)
+
+        logger.info('putting cube back down')
+        self.limb_right.move_to_joint_positions(above_cube_pickup)
+        rospy.sleep(0.5)
+        self.limb_right.move_to_joint_positions(cube_pickup)
+        rospy.sleep(0.5)
+        self.gripper_right.open()
+        rospy.sleep(0.5)
+        self.limb_right.move_to_joint_positions(above_cube_pickup)
+        rospy.sleep(0.5)
+        self.limb_right.move_to_joint_positions(right_centered)
+        rospy.sleep(0.5)
+        logger.info('pickup and place done!')
 
     def send_image(self):
         """
