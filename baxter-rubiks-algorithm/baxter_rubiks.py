@@ -429,7 +429,8 @@ class Baxter(object):
         """
         logger.debug('performing current: {}, previous: {}'.format(previous_manouver, current_manouver))
         # rotate the cube to show the correct face
-        if self.rotate_cube(previous_manouver[0], current_manouver[0]) is False:
+        rotate_cube_return = self.rotate_cube(previous_manouver[0], current_manouver[0])
+        if rotate_cube_return is False:
             logger.error('error durring cube rotation')
             return False
 
@@ -447,6 +448,12 @@ class Baxter(object):
         self.left_central['left_w2'] = -0.645422415765381
         self.limb_left.move_to_joint_positions(self.left_central)
         rospy.sleep(0.5)
+
+        # check if the cube need to be rotated back to a 'flat' position
+        if rotate_cube_return:
+            self.rotate_cube(current_manouver[0], previous_manouver[0])
+            logger.debug('rotated back to a "flat" position')
+
         logger.debug('manouver {} performed'.format(current_manouver))
 
     def rotate_face(self, rotation):
@@ -489,14 +496,14 @@ class Baxter(object):
         if rospy.is_shutdown():
             logger.error('rospy was shutdown, exiting rotate_cube')
             return
-        # face relationships for the Front, Back, Left and Right faces
-        face_relations = {'quaterturnCW': ['FR', 'RB', 'BL', 'LF'],
-                          'quaterturnACW': ['FL', 'LB', 'BR', 'RF'],
-                          'halfturnCW': ['FB', 'RL', 'BF', 'LR']}
-        faces_combined = current_face[0] + next_face[0]
+        face_geometry = {
+            'F': {'90CW': 'R', '90ACW': 'L', '180CW': 'B'},
+            'B': {'90CW': 'L', '90ACW': 'R', '180CW': 'F'},
+            'L': {'90CW': 'F', '90ACW': 'B', '180CW': 'R'},
+            'R': {'90CW': 'B', '90ACW': 'F', '180CW': 'L'}}
 
         # rotate the cube flat 90 clockwise
-        if faces_combined in face_relations['quaterturnCW']:
+        if next_face in face_geometry[current_face]['90CW']:
             # move close to the cube
             rospy.sleep(0.5)
             self.gripper_left.close()
@@ -511,7 +518,7 @@ class Baxter(object):
             rospy.sleep(0.5)
 
         # rotate the cube flat 90 anticlockwise
-        elif faces_combined in face_relations['quaterturnACW']:
+        elif next_face in face_geometry[current_face]['90ACW']:
             # move close to the cube
             rospy.sleep(0.5)
             self.gripper_left.close()
@@ -526,7 +533,7 @@ class Baxter(object):
             rospy.sleep(0.5)
 
         # rotate the cube flat 180 clockwise
-        elif faces_combined in face_relations['halfturnCW']:
+        elif next_face in face_geometry[current_face]['180CW']:
             # move close to the cube
             rospy.sleep(0.5)
             self.gripper_left.close()
@@ -554,7 +561,7 @@ class Baxter(object):
             rospy.sleep(0.5)
 
         # rotate the cube down to reveal the up face
-        elif faces_combined[1] == 'U':
+        elif next_face is 'U':
             self.limb_left.move_to_joint_positions(self.left_central)
             rospy.sleep(0.5)
             self.limb_left.move_to_joint_positions(self.left_cube)
@@ -582,7 +589,7 @@ class Baxter(object):
             logger.debug('rotate cube down finished')
 
         # rotate the cube up to reveal the down face
-        elif faces_combined[1] == 'D':
+        elif next_face is 'D':
             self.limb_left.move_to_joint_positions(self.left_central)
             rospy.sleep(0.5)
             self.limb_left.move_to_joint_positions(self.left_vertical_central)
@@ -608,7 +615,7 @@ class Baxter(object):
             logger.debug('rotate cube up finished')
 
         # for the case when the faces are the same
-        elif faces_combined[0] == faces_combined[1]:
+        elif current_face is next_face:
             logger.debug('faces are the same, no cube rotation')
 
         # to catch any errors
