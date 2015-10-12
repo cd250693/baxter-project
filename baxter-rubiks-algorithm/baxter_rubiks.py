@@ -294,9 +294,9 @@ class Baxter(object):
         self.robotstate.enable()
 
         # Move both arms into the centre position
-        self.limb_left.move_to_joint_positions(left_centred)
+        self.limb_left.move_to_joint_positions(left_central)
         rospy.sleep(0.5)
-        self.limb_right.move_to_joint_positions(right_centred)
+        self.limb_right.move_to_joint_positions(right_central)
         rospy.sleep(0.5)
 
         # Calibrate the grippers
@@ -306,28 +306,16 @@ class Baxter(object):
         # Image path to display on baxters face screen
         self.img_path = 'rubiks_algorithm_image.jpg'
 
-        # joint angles for the position to pick up the cube
-        self.cube_pickup = {
-            'right_e0': -0.7669903930664063,
-            'right_e1': 0.8007379703613282,
-            'right_s0': 1.2172137537963867,
-            'right_s1': -0.4421699616027832,
-            'right_w0': 0.6803204786499024,
-            'right_w1': 1.432738054248047,
-            'right_w2': -0.120800986907959}
-
-        # joint angles for position above the cube
-        self.above_cube_pickup = {
-            'right_e0': -0.33402431618041994,
-            'right_e1': 0.832568071673584,
-            'right_s0': 1.0538448000732423,
-            'right_s1': -0.6876068873840332,
-            'right_w0': 0.26461168560791015,
-            'right_w1': 1.4638011651672365,
-            'right_w2': -0.016490293450927736}
+        ######
+        # Joint angles for both arms
+        # right: right limb joint angles
+        # left: left limb joint angles
+        # central: position near the cube
+        # cube: position where the cube can be grabbed/manipulated
+        ######
 
         # joint angles for right limb central and cube positions
-        self.right_centred = {
+        self.right_central = {
             'right_e0': -0.6369855214416504,
             'right_e1': 2.139136206262207,
             'right_s0': 0.8716845817199708,
@@ -345,8 +333,27 @@ class Baxter(object):
             'right_w1': 1.746053629815674,
             'right_w2': -1.1727283109985351}
 
+        # joint angles for right limb pickup and place of cube
+        self.right_pickup_central = {
+            'right_e0': -0.8310340908874513,
+            'right_e1': 0.7685243738525391,
+            'right_s0': 1.2340875424438478,
+            'right_s1': -0.5276893904296875,
+            'right_w0': 0.6887573729736328,
+            'right_w1': 1.5393497188842775,
+            'right_w2': -0.09165535197143555}
+
+        self.right_pickup_cube = {
+            'right_e0': -0.7669903930664063,
+            'right_e1': 0.8007379703613282,
+            'right_s0': 1.2172137537963867,
+            'right_s1': -0.4421699616027832,
+            'right_w0': 0.6803204786499024,
+            'right_w1': 1.432738054248047,
+            'right_w2': -0.120800986907959}
+
         # joint angles for left limb central and cube positions
-        self.left_centred = {
+        self.left_central = {
             'left_e0': -0.33785926814575196,
             'left_e1': 2.086213869140625,
             'left_s0': -0.10584467424316407,
@@ -355,10 +362,7 @@ class Baxter(object):
             'left_w1': 1.6751070184570314,
             'left_w2': -0.645422415765381}
 
-        self.left_cube = {}
-
-        # joint angles for left limb face manipulation position
-        self.left_face_rotation = {
+        self.left_cube = {
             'left_e0': -0.33172334500122075,
             'left_e1': 2.148340090979004,
             'left_s0': -0.2546408104980469,
@@ -367,23 +371,28 @@ class Baxter(object):
             'left_w1': 1.601092445526123,
             'left_w2': -0.645422415765381}
 
-        # angles for left arm rotating faces
-        self.joint_left_face_rotation = {}
-        # angles for left arm quater cube turn flat
-        self.joint_left_cube_flat_rotation = {}
-        # angles for left arm quater turn up
-        self.joint_left_cube_up_rotation = {}
-        # angles for left are quater turn down
-        self.joint_left_cube_down_rotation = {}
-        # left arm position for rotating the cube up/down
-        self.joint_left_arm_down = {
-            'right_e0': -0.6369855214416504,
-            'right_e1': 2.139136206262207,
-            'right_s0': 0.8716845817199708,
-            'right_s1': -0.9875001310729982,
-            'right_w0': 1.3077186201782227,
-            'right_w1': 2.089665325909424,
-            'right_w2': -1.1757962725708009}
+        # joint angles for left limb central and cube flat rotation
+        self.left_flat_central = {}
+        self.left_flat_cube = {}
+
+        # joint angles for left limb central and cube vertical rotation
+        self.left_vertical_central = {
+            'left_e0': -0.6902913537597657,
+            'left_e1': 1.7330147931335451,
+            'left_s0': -0.009587379913330078,
+            'left_s1': 0.10584467424316407,
+            'left_w0': -1.0760875214721681,
+            'left_w1': 2.0946507634643554,
+            'left_w2': -0.40573791793212893}
+
+        self.left_vertical_cube = {
+            'left_e0': -1.1320778201660158,
+            'left_e1': 1.4258351407104493,
+            'left_s0': -0.3773592733886719,
+            'left_s1': 0.5948010498229981,
+            'left_w0': -0.9625729432983399,
+            'left_w1': 2.0455633783081058,
+            'left_w2': -0.3497476192382813}
 
     def clean_shutdown(self):
         """
@@ -425,11 +434,11 @@ class Baxter(object):
             logger.error('error durring face rotation')
             return False
         # move the left limb away
-        self.left_centred['left_w2'] = self.limb_left.joint_angle('left_w2')
-        self.limb_left.move_to_joint_positions(self.left_centred)
+        self.left_central['left_w2'] = self.limb_left.joint_angle('left_w2')
+        self.limb_left.move_to_joint_positions(self.left_central)
         rospy.sleep(0.5)
-        self.left_centred['left_w2'] = -0.645422415765381
-        self.limb_left.move_to_joint_positions(self.left_centred)
+        self.left_central['left_w2'] = -0.645422415765381
+        self.limb_left.move_to_joint_positions(self.left_central)
         rospy.sleep(0.5)
         logger.debug('manouver {} performed'.format(current_manouver))
 
@@ -473,7 +482,7 @@ class Baxter(object):
         if rospy.is_shutdown():
             logger.error('rospy was shutdown, exiting rotate_cube')
             return
-        # face relationships asuming a flat spin of the cube
+        # face relationships for the Front, Back, Left and Right faces
         face_relations = {'quaterturnCW': ['FR', 'RB', 'BL', 'LF'],
                           'quaterturnACW': ['FL', 'LB', 'BR', 'RF'],
                           'halfturnCW': ['FB', 'RL', 'BF', 'LR']}
@@ -567,19 +576,19 @@ class Baxter(object):
             logger.error('rospy was shutdown, exiting pickup_cube')
             return
         logger.info('picking up the rubiks cube')
-        self.limb_right.move_to_joint_positions(self.right_centred)
+        self.limb_right.move_to_joint_positions(self.right_central)
         rospy.sleep(0.5)
-        self.limb_right.move_to_joint_positions(self.above_cube_pickup)
+        self.limb_right.move_to_joint_positions(self.right_pickup_central)
         rospy.sleep(0.5)
         self.gripper_right.open()
         rospy.sleep(0.5)
-        self.limb_right.move_to_joint_positions(self.cube_pickup)
+        self.limb_right.move_to_joint_positions(self.right_pickup_cube)
         rospy.sleep(0.5)
         self.gripper_right.close()
         rospy.sleep(0.5)
-        self.limb_right.move_to_joint_positions(self.above_cube_pickup)
+        self.limb_right.move_to_joint_positions(self.right_pickup_central)
         rospy.sleep(0.5)
-        self.limb_right.move_to_joint_positions(self.right_centred)
+        self.limb_right.move_to_joint_positions(self.right_central)
         rospy.sleep(0.5)
         logger.debug('pick up cube ended')
 
@@ -591,15 +600,15 @@ class Baxter(object):
             logger.error('rospy was shutdown, exiting putdown_cube')
             return
         logger.info('putting down the rubiks cube')
-        self.limb_right.move_to_joint_positions(self.angles_above_pickup)
+        self.limb_right.move_to_joint_positions(self.right_pickup_central)
         rospy.sleep(0.5)
-        self.limb_right.move_to_joint_positions(self.angles_pickup)
+        self.limb_right.move_to_joint_positions(self.right_pickup_cube)
         rospy.sleep(0.5)
         self.gripper_right.open()
         rospy.sleep(0.5)
-        self.limb_right.move_to_joint_positions(self.angles_above_pickup)
+        self.limb_right.move_to_joint_positions(self.right_pickup_central)
         rospy.sleep(0.5)
-        self.limb_right.move_to_joint_positions(self.angles_centered)
+        self.limb_right.move_to_joint_positions(self.right_central)
         rospy.sleep(0.5)
         logger.debug('putdown cube ended')
 
