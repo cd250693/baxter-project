@@ -293,16 +293,6 @@ class Baxter(object):
         logger.info('Enabling robot')
         self.robotstate.enable()
 
-        # Move both arms into the centre position
-        self.limb_left.move_to_joint_positions(left_central)
-        rospy.sleep(0.5)
-        self.limb_right.move_to_joint_positions(right_central)
-        rospy.sleep(0.5)
-
-        # Calibrate the grippers
-        self.gripper_left.calibrate()
-        self.gripper_right.calibrate()
-
         # Image path to display on baxters face screen
         self.img_path = 'rubiks_algorithm_image.jpg'
 
@@ -363,13 +353,13 @@ class Baxter(object):
             'left_w2': -0.645422415765381}
 
         self.left_cube = {
-            'left_e0': -0.33172334500122075,
-            'left_e1': 2.148340090979004,
-            'left_s0': -0.2546408104980469,
-            'left_s1': -1.1201894690734864,
-            'left_w0': -1.2275681241027834,
-            'left_w1': 1.601092445526123,
-            'left_w2': -0.645422415765381}
+            'left_e0': -0.3401602393249512,
+            'left_e1': 2.142204167834473,
+            'left_s0': -0.24006799302978518,
+            'left_s1': -1.1247914114318849,
+            'left_w0': -1.231019580871582,
+            'left_w1': 1.5999419599365234,
+            'left_w2': -0.611674838470459}
 
         # joint angles for left limb central and cube flat rotation
         self.left_flat_central = {}
@@ -386,19 +376,33 @@ class Baxter(object):
             'left_w2': -0.40573791793212893}
 
         self.left_vertical_cube = {
-            'left_e0': -1.1320778201660158,
-            'left_e1': 1.4258351407104493,
-            'left_s0': -0.3773592733886719,
-            'left_s1': 0.5948010498229981,
-            'left_w0': -0.9625729432983399,
-            'left_w1': 2.0455633783081058,
-            'left_w2': -0.3497476192382813}
+            'left_e0': -1.1255584018249511,
+            'left_e1': 1.440407958178711,
+            'left_s0': -0.3666214078857422,
+            'left_s1': 0.5898156122680664,
+            'left_w0': -0.9667913904602051,
+            'left_w1': 2.033675027215576,
+            'left_w2': -0.34514567687988285}
+
+        # Move both arms into the centre position
+        self.limb_left.move_to_joint_positions(self.left_central)
+        rospy.sleep(0.5)
+        self.limb_right.move_to_joint_positions(self.right_central)
+        rospy.sleep(0.5)
+
+        # Calibrate the grippers
+        self.gripper_left.calibrate()
+        self.gripper_right.calibrate()
 
     def clean_shutdown(self):
         """
         Function for safely shutting the program down
         """
         logger.info('Exiting clean')
+        self.limb_right.move_to_joint_positions(self.right_central)
+        self.limb_left.move_to_joint_positions(self.left_central)
+        self.gripper_right.open()
+        self.gripper_left.open()
         if not self.initial_state:
             logger.info('Disabling Robot')
             self.robotstate.disable()
@@ -423,16 +427,19 @@ class Baxter(object):
         previous_manouver: the manouver that was just performed
         current_manouver: the manouver that is to be performed next
         """
+        logger.debug('performing current: {}, previous: {}'.format(previous_manouver, current_manouver))
         # rotate the cube to show the correct face
         if self.rotate_cube(previous_manouver[0], current_manouver[0]) is False:
             logger.error('error durring cube rotation')
             return False
+
         # move the left limb into position
-        self.limb_left.move_to_joint_positions(left_face_rotation)
+        self.limb_left.move_to_joint_positions(self.left_cube)
         # rotate the face
         if self.rotate_face(current_manouver) is False:
             logger.error('error durring face rotation')
             return False
+
         # move the left limb away
         self.left_central['left_w2'] = self.limb_left.joint_angle('left_w2')
         self.limb_left.move_to_joint_positions(self.left_central)
@@ -486,69 +493,56 @@ class Baxter(object):
         face_relations = {'quaterturnCW': ['FR', 'RB', 'BL', 'LF'],
                           'quaterturnACW': ['FL', 'LB', 'BR', 'RF'],
                           'halfturnCW': ['FB', 'RL', 'BF', 'LR']}
-        moves_combined = current_face[0] + next_face[0]
-        if moves_combined in face_relations['quaterturnCW']:
-            # rotate the cube flat clockwise
+        faces_combined = current_face[0] + next_face[0]
+
+        # rotate the cube flat 90 clockwise
+        if faces_combined in face_relations['quaterturnCW']:
             # move close to the cube
             rospy.sleep(0.5)
-            # close the left gripper
             self.gripper_left.close()
             rospy.sleep(0.5)
-            # open the right gripper
             self.gripper_right.open()
             rospy.sleep(0.5)
             # rotate the cube a quater turn clockwise
             rospy.sleep(0.5)
-            # close the right gripper
             self.gripper_right.close()
             rospy.sleep(0.5)
-            # open the left gripper
             self.gripper_left.open()
             rospy.sleep(0.5)
 
-        elif moves_combined in face_relations['quaterturnACW']:
-            # rotate the cube flat anticlockwise
+        # rotate the cube flat 90 anticlockwise
+        elif faces_combined in face_relations['quaterturnACW']:
             # move close to the cube
             rospy.sleep(0.5)
-            # close the left gripper
             self.gripper_left.close()
             rospy.sleep(0.5)
-            # open the right gripper
             self.gripper_right.open()
             rospy.sleep(0.5)
             # rotate the cube a quater turn anticlockwise
             rospy.sleep(0.5)
-            # close the right gripper
             self.gripper_right.close()
             rospy.sleep(0.5)
-            # open the left gripper
             self.gripper_left.open()
             rospy.sleep(0.5)
 
-        elif moves_combined in face_relations['halfturnCW']:
-            # rotate the cube flat 180 clockwise
+        # rotate the cube flat 180 clockwise
+        elif faces_combined in face_relations['halfturnCW']:
             # move close to the cube
             rospy.sleep(0.5)
-            # close the left gripper
             self.gripper_left.close()
             rospy.sleep(0.5)
-            # open the right gripper
             self.gripper_right.open()
             rospy.sleep(0.5)
             # rotate the cube quater turn clockwise
             rospy.sleep(0.5)
-            # close right gripper
             self.gripper_right.open()
             rospy.sleep(0.5)
-            # open left gripper
             self.gripper_left.open()
             rospy.sleep(0.5)
             # return left arm to a central position
             # move left arm close into gripper range
-            # close left gripper
             self.gripper_left.close()
             rospy.sleep(0.5)
-            # open right gripper
             self.gripper_right.open()
             rospy.sleep(0.5)
             # move cube quater turn clockwise
@@ -559,11 +553,65 @@ class Baxter(object):
             # return left arm to central position
             rospy.sleep(0.5)
 
-        elif moves_combined[1] == 'U':
-            # rotate the cube down, perform operation, then rotate back to flat
-            # either rotate the cube, or move the arm so its accessable
-        elif moves_combined[1] == 'D':
-            # rotate the cube up, perform the operation, then rotate back to flat
+        # rotate the cube down to reveal the up face
+        elif faces_combined[1] == 'U':
+            self.limb_left.move_to_joint_positions(self.left_central)
+            rospy.sleep(0.5)
+            self.limb_left.move_to_joint_positions(self.left_cube)
+            rospy.sleep(0.5)
+            self.gripper_left.close()
+            rospy.sleep(0.5)
+            self.gripper_right.open()
+            rospy.sleep(0.5)
+            self.limb_right.move_to_joint_positions(self.right_central)
+            rospy.sleep(0.5)
+            self.limb_left.move_to_joint_positions(self.left_vertical_central)
+            rospy.sleep(0.5)
+            self.limb_left.move_to_joint_positions(self.left_vertical_cube)
+            rospy.sleep(0.5)
+            self.limb_right.move_to_joint_positions(self.right_cube)
+            rospy.sleep(0.5)
+            self.gripper_right.close()
+            rospy.sleep(0.5)
+            self.gripper_left.open()
+            rospy.sleep(0.5)
+            self.limb_left.move_to_joint_positions(self.left_vertical_central)
+            rospy.sleep(0.5)
+            self.limb_left.move_to_joint_positions(self.left_central)
+            rospy.sleep(0.5)
+            logger.debug('rotate cube down finished')
+
+        # rotate the cube up to reveal the down face
+        elif faces_combined[1] == 'D':
+            self.limb_left.move_to_joint_positions(self.left_central)
+            rospy.sleep(0.5)
+            self.limb_left.move_to_joint_positions(self.left_vertical_central)
+            rospy.sleep(0.5)
+            self.limb_left.move_to_joint_positions(self.left_vertical_cube)
+            rospy.sleep(0.5)
+            self.gripper_left.close()
+            rospy.sleep(0.5)
+            self.gripper_right.open()
+            rospy.sleep(0.5)
+            self.limb_right.move_to_joint_positions(self.right_central)
+            rospy.sleep(0.5)
+            self.limb_left.move_to_joint_positions(self.left_cube)
+            rospy.sleep(0.5)
+            self.limb_right.move_to_joint_positions(self.right_cube)
+            rospy.sleep(0.5)
+            self.gripper_right.close()
+            rospy.sleep(0.5)
+            self.gripper_left.open()
+            rospy.sleep(0.5)
+            self.limb_left.move_to_joint_positions(self.left_central)
+            rospy.sleep(0.5)
+            logger.debug('rotate cube up finished')
+
+        # for the case when the faces are the same
+        elif faces_combined[0] == faces_combined[1]:
+            logger.debug('faces are the same, no cube rotation')
+
+        # to catch any errors
         else:
             logger.error('combined previous and current moves not valid')
             return False
@@ -589,6 +637,8 @@ class Baxter(object):
         self.limb_right.move_to_joint_positions(self.right_pickup_central)
         rospy.sleep(0.5)
         self.limb_right.move_to_joint_positions(self.right_central)
+        rospy.sleep(0.5)
+        self.limb_right.move_to_joint_positions(self.right_cube)
         rospy.sleep(0.5)
         logger.debug('pick up cube ended')
 
@@ -651,89 +701,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-
-'''
-class VisionAnalysis(object):
-    """
-    Analyses images of cube faces and returns colour values
-    Will handle getting the image from the camera feed too.
-    """
-
-    def __init__(self):
-        pass
-
-    def get_camera_image(self):
-        """
-        Gets the image from the connected camera, returns image as a mat in RGB
-        NOTE: Baxter camera needs to be mounted as a webcamera, function to do this
-        will be included in this class
-        """
-        cap = cv2.VideoCapture(0)
-        i = 0
-        while i < 10:
-            ret, frame = cap.read()
-            time.sleep(0.001)
-            i += 1
-        # changes from BGR to RGB
-        facemat = frame[:, :, ::-1]
-        # when finished, frame capture is released
-        cap.release()
-        return facemat
-
-    def vision_system(self):
-        """
-        Analises the face images, returns equivalent colour values
-        """
-        # this function is still a placeholder !!!!!!!
-        ## Currently just parses preset values and as such is a placeholder
-        ## for the actual vision system
-        ## will probably need to be broken into multiple functions
-        # variables obtained by the vision system
-        # colours are:
-        #            o = orange
-        #            n = blue
-        #            r = red
-        #            g = green
-        #            w = white
-        #            y = yellow
-        # NOTE # Do not match colour letter and face letter, causes .replace issues
-        frontvs = 'rnwgrwoon'  # no'
-        backvs = 'nwgyoowyr'
-        upvs = 'roygynyyn'
-        downvs = 'grwwwgwrg'
-        leftvs = 'ywngnygny'
-        rightvs = 'roorgonro'
-
-        ## will be used to get images
-        ## get all of the faces, each one needs to call get_camera_image
-        #print('Show FRONT:'),
-        front = self.get_camera_image()
-        #print('Done')
-        #print('Show BACK:'),
-        back = self.get_camera_image()
-        #print('Done')
-        #print('Show UP:'),
-        up = self.get_camera_image()
-        #print('Done')
-        #print('Show DOWN:'),
-        down = self.get_camera_image()
-        #print('Done')
-        #print('Show LEFT:'),
-        left = self.get_camera_image()
-        #print('Done')
-        #print('Show RIGHT:'),
-        right = self.get_camera_image()
-        #print('Done')
-        # setup a matplot with all the faces (arranged like the cube is folded out)
-        titles = ['Front', 'Back', 'Up', 'Down', 'Left', 'Right']
-        images = [front, back, up, down, left, right]
-        position = [5, 3, 2, 8, 4, 6]
-        for i in range(6):
-            plt.subplot(3, 3, position[i]), plt.imshow(images[i])
-            plt.title(titles[i])
-            plt.xticks([]), plt.yticks([])
-        plt.show()
-
-        return frontvs, backvs, upvs, downvs, leftvs, rightvs
-'''
