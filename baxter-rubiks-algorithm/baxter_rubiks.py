@@ -20,26 +20,9 @@ logger = logging.getLogger('baxterRubiks')
 logging.getLogger('requests').setLevel(logging.WARNING)
 
 
-# classes : solve cube, cube explorer, vision system, manipulations, a class to act as variable storage for each face
-# (create an instance for each face required)
-# --------------------------------------------------------------------------------
-# BaxterRubiks: main control class, contain main control code, logging,
-# convert_to_singmaster
-# --------------------------------------------------------------------------------
-# CubeExplorer: contains check_solver_status, run_solver, exit_solver,
-# check_solver_connection, send_solver_face_encoding,
-# --------------------------------------------------------------------------------
-# VisionAnalysis: get images from camera, general vision system manipulations
-# --------------------------------------------------------------------------------
-# Baxter: controls communication and commands for baxter
-# --------------------------------------------------------------------------------
-# CubeFace: contains variables for each face cubie value (on instance per face)
-# --------------------------------------------------------------------------------
-
-
 class BaxterRubiks(object):
     """
-    Solves a rubiks cube using the Baxter Research Robot's vision and servo system
+    Solves a rubiks cube using the Baxter Research Robot's servo system
     along with the solving algorithm Cube Explorer
     This class specifically controls the overall process and creates instances of
     the other classes.
@@ -50,6 +33,9 @@ class BaxterRubiks(object):
         initializes object
         """
         self.change_logger_level(loglevel)
+        self.cube_solver = CubeExplorer()
+        self.baxter = Baxter()
+        logger.debug('instances created')
 
     def change_logger_level(self, loggerlevel):
         """
@@ -68,48 +54,15 @@ class BaxterRubiks(object):
         Baxter
         """
         logger.info('-----START-----')
-
-        # create required instances of each class
-        cube_solver = CubeExplorer()
-        # not vision system ATM
-        # vision_system = VisionAnalysis()
-        baxter = Baxter()
-        front_face = CubeFace()
-        back_face = CubeFace()
-        up_face = CubeFace()
-        down_face = CubeFace()
-        left_face = CubeFace()
-        right_face = CubeFace()
-        logger.debug('instances created')
-        # send the program image to baxters face
-        baxter.display_image()
+        # display the image on baxters face screen
+        self.baxter.display_image()
         # run cube solver
-        cube_solver.run_solver()
+        self.cube_solver.run_solver()
         # check the connection to Cube Explorer
-        if cube_solver.check_solver_connection() is False:
-            return False
+        # wait for the person to input the cube values and solve it
+        # get the cube values from the program
         # pick up the rubiks cube
             # placeholder for the manoeuvre ------------------------------
-        # move cube to infront of baxter camera
-            # placeholder for manoeuvre ------------------------------
-        # scan each face, storing the image in the corresponding CubeFace class
-            # get the face orientated towards the camera
-            # scan and save the image into each face instance
-        # send face images to the vision system for analysis
-            # send the faces self.face_image to the vision system, save the results into self.cublet_colours
-        # test the colours from the vision system
-        cube_colours = [front_face.cubelet_colours, back_face.cubelet_colours, left_face.cubelet_colours,
-                        right_face.cubelet_colours, up_face.cubelet_colours, down_face.cubelet_colours]
-        if self.colour_test(cube_colours):
-            logger.debug('cube colours test successful')
-        else:
-            logger.error('cube colours are invalid')
-            return False
-        # convert the cube colours into singmaster notation
-        cube_colours_singmaster = self.convert_to_singmaster(cube_colours)
-        logger.debug('cube colours converted to singmaster notation')
-        # send face encoding to Cube Explorer
-        cube_solver.send_solver_face_encoding(cube_colours_singmaster)
         # perform each manipulation
             # placeholder for manipulations -----------------------------
         # place down rubiks cube
@@ -547,22 +500,43 @@ class Baxter(object):
         rospy.sleep(0.5)
         self.gripper_left.open()
         rospy.sleep(0.5)
+        logger.debug('rotate face {} finished'.format(rotation))
 
     def rotate_cube_90cw(self):
         """
         Rotate the cube flat 90 degrees clockwise
         """
-        # move close to the cube
+        self.limb_left.move_to_joint_positions(self.left_central)
+        rospy.sleep(0.5)
+        self.limb_left.move_to_joint_positions(self.left_cube)
         rospy.sleep(0.5)
         self.gripper_left.close()
         rospy.sleep(0.5)
         self.gripper_right.open()
         rospy.sleep(0.5)
-        # rotate the cube a quater turn clockwise
+        self.limb_right.move_to_joint_positions(self.right_central)
+        rospy.sleep(0.5)
+        self.limb_left.move_to_joint_positions(self.left_flat_central)
+        rospy.sleep(0.5)
+        self.limb_left.move_to_joint_positions(self.left_flat_cube)
+        rospy.sleep(0.5)
+        self.limb_right.move_to_joint_positions(self.right_flat_central)
+        rospy.sleep(0.5)
+        self.limb_right.move_to_joint_positions(self.right_flat_cube)
         rospy.sleep(0.5)
         self.gripper_right.close()
         rospy.sleep(0.5)
         self.gripper_left.open()
+        rospy.sleep(0.5)
+        self.limb_left.move_to_joint_positions(self.left_flat_central)
+        rospy.sleep(0.5)
+        self.limb_right.move_to_joint_positions(self.right_flat_central)
+        rospy.sleep(0.5)
+        self.limb_right.move_to_joint_positions(self.right_central)
+        rospy.sleep(0.5)
+        self.limb_left.move_to_joint_positions(self.left_central)
+        rospy.sleep(0.5)
+        self.limb_right.move_to_joint_positions(self.right_cube)
         rospy.sleep(0.5)
         logger.debug('rotate cube 90cw finished')
         return
@@ -571,17 +545,37 @@ class Baxter(object):
         """
         Rotate the cube flat 90 degrees anticlockwise
         """
-        # move close to the cube
+        self.limb_left.move_to_joint_positions(self.left_central)
+        rospy.sleep(0.5)
+        self.limb_left.move_to_joint_positions(self.left_flat_central)
+        rospy.sleep(0.5)
+        self.limb_right.move_to_joint_positions(self.right_flat_central)
+        rospy.sleep(0.5)
+        self.limb_right.move_to_joint_positions(self.right_flat_cube)
+        rospy.sleep(0.5)
+        self.limb_left.move_to_joint_positions(self.left_flat_cube)
         rospy.sleep(0.5)
         self.gripper_left.close()
         rospy.sleep(0.5)
         self.gripper_right.open()
         rospy.sleep(0.5)
-        # rotate the cube a quater turn anticlockwise
+        self.limb_right.move_to_joint_positions(self.right_flat_central)
+        rospy.sleep(0.5)
+        self.limb_left.move_to_joint_positions(self.left_flat_central)
+        rospy.sleep(0.5)
+        self.limb_left.move_to_joint_positions(self.left_central)
+        rospy.sleep(0.5)
+        self.limb_right.move_to_joint_positions(self.right_central)
+        rospy.sleep(0.5)
+        self.limb_left.move_to_joint_positions(self.left_cube)
+        rospy.sleep(0.5)
+        self.limb_right.move_to_joint_positions(self.right_cube)
         rospy.sleep(0.5)
         self.gripper_right.close()
         rospy.sleep(0.5)
         self.gripper_left.open()
+        rospy.sleep(0.5)
+        self.limb_left.move_to_joint_positions(self.left_central)
         rospy.sleep(0.5)
         logger.debug('rotate cube 90acw finished')
         return
@@ -590,31 +584,8 @@ class Baxter(object):
         """
         Rotate the cube flat 180 degrees clockwise
         """
-        # move close to the cube
-        rospy.sleep(0.5)
-        self.gripper_left.close()
-        rospy.sleep(0.5)
-        self.gripper_right.open()
-        rospy.sleep(0.5)
-        # rotate the cube quater turn clockwise
-        rospy.sleep(0.5)
-        self.gripper_right.open()
-        rospy.sleep(0.5)
-        self.gripper_left.open()
-        rospy.sleep(0.5)
-        # return left arm to a central position
-        # move left arm close into gripper range
-        self.gripper_left.close()
-        rospy.sleep(0.5)
-        self.gripper_right.open()
-        rospy.sleep(0.5)
-        # move cube quater turn clockwise
-        rospy.sleep(0.5)
-        self.gripper_right.close()
-        rospy.sleep(0.5)
-        self.gripper_left.open()
-        # return left arm to central position
-        rospy.sleep(0.5)
+        self.rotate_cube_90cw()
+        self.rotate_cube_90cw()
         logger.debug('rotate cube 180cw finished')
         return
 
@@ -725,22 +696,6 @@ class Baxter(object):
         self.limb_right.move_to_joint_positions(self.right_central)
         rospy.sleep(0.5)
         logger.debug('putdown cube ended')
-
-
-class CubeFace(object):
-    """
-    A class for variable storage along with relevant functions:
-        get the middle colour, send back a string containing all the cubelet values
-    """
-    def __init__(self):
-        self.cubelet_colours = list
-        self.face_image = list
-
-    def GetCentreCubletColour(self):
-        return self.cubelet_colours[4]
-
-    def ReturnFaceColours(self):
-        return self.cubelet_colours
 
 
 def parse_arguments():
