@@ -309,13 +309,13 @@ class Baxter(object):
             'right_w2': -0.5273058952331543}
 
         self.right_flat_cube = {
-            'right_e0': 0.4885728803833008,
-            'right_e1': 1.344150663848877,
-            'right_s0': 0.4506068559265137,
-            'right_s1': -0.6580777572509766,
-            'right_w0': 0.7646894218872071,
-            'right_w1': 2.0639711477416993,
-            'right_w2': -0.7006457240661621}
+            'right_e0': 0.37927674937133793,
+            'right_e1': 1.366776880444336,
+            'right_s0': 0.517335020123291,
+            'right_s1': -0.7014127144592286,
+            'right_w0': 0.8225971965637208,
+            'right_w1': 2.09158280189209,
+            'right_w2': -0.7478156332397461}
 
         # joint angles for left limb central and cube positions
         self.left_central = {
@@ -417,7 +417,7 @@ class Baxter(object):
         Performs the manoeuvre sent to it.
         manoeuvre: the manoeuvre that is to be performed next
         """
-        logger.debug('performing {}, intial state is {}'.format(manoeuvre))
+        logger.debug('performing {}, intial state is {}'.format(manoeuvre, self.cube_state))
         # Transform table for figuring out the cube rotation to perform
         face_transform_table = {
             'F1': {'90cw': 'R1', '90acw': 'L1', '180cw': 'B1', 'up': 'D1', 'down': 'U1'},
@@ -445,14 +445,14 @@ class Baxter(object):
             'D3': {'90cw': 'L4', '90acw': 'R2', '180cw': 'U1', 'up': 'F3', 'down': 'B1'},
             'D4': {'90cw': 'F4', '90acw': 'B4', '180cw': 'U4', 'up': 'R3', 'down': 'L1'}}
         # figure out how to go from the current state to the next state
-        for rotation, state in face_transform_table[self.cube_state].items():
-            if state[0] == manoeuvre[0]:
-                cube_rotation = rotation
-                self.cube_state = state
-                break
-
-        # rotate the cube to show the correct face
-        getattr(self, 'rotate_cube_' + cube_rotation)()
+        if not (self.cube_state[0] == manoeuvre[0]):
+            for rotation, state in face_transform_table[self.cube_state].items():
+                if state[0] == manoeuvre[0]:
+                    cube_rotation = rotation
+                    self.cube_state = state
+                    break
+            # rotate the cube to show the correct face
+            getattr(self, 'rotate_cube_' + cube_rotation)()
 
         # move the left limb into position
         self.limb_left.move_to_joint_positions(self.left_cube)
@@ -518,9 +518,9 @@ class Baxter(object):
         rospy.sleep(0.5)
         self.limb_left.move_to_joint_positions(self.left_flat_central)
         rospy.sleep(0.5)
-        self.limb_left.move_to_joint_positions(self.left_flat_cube)
-        rospy.sleep(0.5)
         self.limb_right.move_to_joint_positions(self.right_flat_central)
+        rospy.sleep(0.5)
+        self.limb_left.move_to_joint_positions(self.left_flat_cube)
         rospy.sleep(0.5)
         self.limb_right.move_to_joint_positions(self.right_flat_cube)
         rospy.sleep(0.5)
