@@ -3,14 +3,10 @@ import subprocess
 import commands
 import time
 import cv2
-# import numpy as np
 import requests
 import argparse
-# from matplotlib import pyplot as plt
 import logging
-from collections import Counter
 import math
-
 import rospy
 import baxter_interface
 from sensor_msgs.msg import Image
@@ -32,9 +28,9 @@ class BaxterRubiks(object):
         """
         initializes object
         """
-        self.change_logger_level(loglevel)
         self.cube_solver = CubeExplorer()
         self.baxter = Baxter()
+        self.change_logger_level(loglevel)
         logger.debug('instances created')
 
     def change_logger_level(self, loggerlevel):
@@ -59,67 +55,23 @@ class BaxterRubiks(object):
         # run cube solver
         self.cube_solver.run_solver()
         # check the connection to Cube Explorer
-        # wait for the person to input the cube values and solve it
+        if not self.cube_solver.send_command_webserver('status', 12):
+            return
+        logger.info('Fill in the cube colours and solve the cube.')
         # get the cube values from the program
+        manoeuvres = self.cube_solver.send_command_webserver('getLast', 120)
         # pick up the rubiks cube
-            # placeholder for the manoeuvre ------------------------------
+        self.baxter.pickup_cube()
         # perform each manipulation
-            # placeholder for manipulations -----------------------------
+        for manoeuvre in manoeuvres:
+            if self.baxter.perform_manoeuvre(manoeuvre) is False:
+                logger.error('An error occured durring manoeuvre performing')
+                return
         # place down rubiks cube
-            # placeholder for manipulations -----------------------------
-        # cleanup - exit cube explorer, disable baxter ect...
+        self.baxter.putdown_cube()
+        # cleanup
+        self.cube_solver.exit_solver()
         logger.info('-----END-----')
-
-    def convert_to_singmaster(self, cube_colours):  # needs changing when the cube_colours is ordered properly
-        """
-        Converts face colour encoding to singmaster notation
-        Outputs as a string in the order required for Cube Explorer:
-        up - right - front - down - left - back
-        """
-        # reorders cube_colours ----------------------- maybe save in propper order first time around!?!?!?
-        # this asumes the ordering is front - back - left - right - up - down
-        # just remove the following statement when cube_colours is ordered properly.....
-        required_order = [2, 5, 0, 3, 4, 1]
-        cube_colours = [cube_colours[i] for i in required_order]
-        # get the centre cubelet colour of each face
-        front_colour = cube_colours[0][4]
-        back_colour = cube_colours[1][4]
-        up_colour = cube_colours[2][4]
-        down_colour = cube_colours[3][4]
-        left_colour = cube_colours[4][4]
-        right_colour = cube_colours[5][4]
-        # combines face colour strings into one string
-        cube_colours_joined = ''.join(cube_colours)
-        # replaces colour letter with its corresponding face letter
-        cube_colours_singmaster = cube_colours_joined.replace(
-            front_colour, 'f').replace(
-            back_colour, 'b').replace(
-            up_colour, 'u').replace(
-            down_colour, 'd').replace(
-            left_colour, 'l').replace(
-            right_colour, 'r')
-        return cube_colours_singmaster
-
-    def colour_test(self, cube_colours):
-        """
-        Logical tests to check if colour values from the vision system are valid
-        cube_colours is a list of the face colours
-        """
-        # test if each cube face has 9 colours
-        if any(len(x) is not 9 for x in cube_colours):
-            logger.error('not nine colours in each face')
-            return False
-        # test if there is nine of each colour
-        elif any(x is not 9 for x in Counter(cube_colours).values()):
-            logger.error('not nine of each colour')
-            return False
-        # test if each centre is unique
-        elif any(x is not 1 for x in Counter(cube_colours[0, 1, 2, 3, 4, 5][4]).values()):
-            logger.error('centre colours are not unique')
-            return False
-        # all tests have passed
-        else:
-            return True
 
 
 class CubeExplorer(object):
@@ -173,48 +125,40 @@ class CubeExplorer(object):
             else:
                 logger.info('Invalid input, now exiting')
 
-    def check_solver_connection(self):
+    def send_command_webserver(self, command, retries):
         """
-        Checks the connection to Cube Explorers webserver
+        Sends the command to the webserver of the cube solver
+        command: the text command to send
+        retries: the number of retries with 2.5 seconds inbetween
         """
-        logger.info('Checking connection to Cube Explorer')
-        # Define loop variable to allow a timeout
-        loop = 12
-        while loop > 0:
+        logger.info('Sending {} to solver webserver'.format(command))
+        # Loop until the retries limit is reached
+        loopnum = 0
+        while loopnum <= retries:
             try:
-                # send status request to the webserver
-                requests.get('http://127.0.0.1:8081/?status')
-                logger.info('Connection successful')
-                return True
+                # send command to webserver
+                response = requests.get('http://127.0.0.1:8081/?' + command)
+                logger.info('{} command sent'.format(command))
+                break
             except requests.exceptions.ConnectionError:
                 time.sleep(2.5)
-                loop += 1
+                loopnum += 1
         else:
-            logger.error('Couldn\'t connect to webserver')
+            logger.error('Sending timed out after {}\'s'.format((retries * 2.5)))
             return False
-
-    def send_solver_face_encoding(self, face_encoding):
-        """
-        Sends the face encoding to the solver, must already be in singmaster
-        notation. Returns the manoeuvres as a list without html encoding.
-        """
-        try:
-            response = requests.get('http://127.0.0.1:8081/?' + face_encoding)
-            # clear the main window
-            requests.get('http://127.0.0.1:8081/?clear')
-        except requests.exceptions.ConnectionError:
-            return False
-        manoeuvres_raw = response.text
-        # removes the html encoding from the response
-        manoeuvres = manoeuvres_raw.replace('<HTML><BODY>\r\n', '')
-        manoeuvres = manoeuvres.replace('\r\n</BODY></HTML>\r\n', '')
-        # check to see if the cube was solved
-        if 'Cube cannot be solved' in manoeuvres:
-            logger.error('{}'.format(manoeuvres))
-            return False
+        # Determine what to return
+        if command == 'getLast':
+            manoeuvres = response.text.replace('<HTML><BODY>\r\n', '')
+            manoeuvres = manoeuvres.replace('\r\n</BODY></HTML>\r\n', '')
+            # check if the cube was solved correctly
+            if 'Cube cannot be solved' in manoeuvres:
+                logger.error('{}'.format(manoeuvres))
+                return False
+            else:
+                # returns manoeuvres as a list
+                return manoeuvres.split()
         else:
-            # returns manoeuvres as a list
-            return manoeuvres.split()
+            return True
 
 
 class Baxter(object):
@@ -418,6 +362,9 @@ class Baxter(object):
         manoeuvre: the manoeuvre that is to be performed next
         """
         logger.debug('performing {}, intial state is {}'.format(manoeuvre, self.cube_state))
+        if rospy.is_shutdown():
+            logger.error('rospy was shutdown, exiting perform_manoeuvre')
+            return False
         # Transform table for figuring out the cube rotation to perform
         face_transform_table = {
             'F1': {'90cw': 'R1', '90acw': 'L1', '180cw': 'B1', 'up': 'D1', 'down': 'U1'},
@@ -451,6 +398,9 @@ class Baxter(object):
                     cube_rotation = rotation
                     self.cube_state = state
                     break
+                else:
+                    logger.error('{} is not valid'.format(manoeuvre))
+
             # rotate the cube to show the correct face
             getattr(self, 'rotate_cube_' + cube_rotation)()
 
@@ -480,9 +430,6 @@ class Baxter(object):
         {face}2 = 180 degrees clockwise
         example: rotation = "F2" is rotate the face 90 degrees clockwise
         """
-        if rospy.is_shutdown():
-            logger.error('rospy was shutdown, exiting rotate_gripper')
-            return
         joint_angles = self.limb_left.joint_angles()
         if len(rotation) == 1:
             joint_angles['left_w2'] += math.pi / 2
