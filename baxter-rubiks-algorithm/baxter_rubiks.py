@@ -202,6 +202,8 @@ class Baxter(object):
         # left: left limb joint angles
         # central: position near the cube
         # cube: position where the cube can be grabbed/manipulated
+        # flat: position for performing the flat cube rotations
+        # vertical: positions for porforming the up/down cube rotations
         ######
 
         # joint angles for right limb central and cube positions
@@ -400,6 +402,7 @@ class Baxter(object):
                     break
                 else:
                     logger.error('{} is not valid'.format(manoeuvre))
+                    return False
 
             # rotate the cube to show the correct face
             getattr(self, 'rotate_cube_' + cube_rotation)()
@@ -432,9 +435,9 @@ class Baxter(object):
         """
         joint_angles = self.limb_left.joint_angles()
         if len(rotation) == 1:
-            joint_angles['left_w2'] += math.pi / 2
+            joint_angles['left_w2'] += (math.pi / 2) * 1.01
         elif rotation[1] == "'":
-            joint_angles['left_w2'] -= math.pi / 2
+            joint_angles['left_w2'] -= (math.pi / 2) * 1.01
         elif rotation[1] == '2':
             joint_angles['left_w2'] += math.pi
         else:
