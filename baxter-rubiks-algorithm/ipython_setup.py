@@ -1,12 +1,16 @@
-# from baxter_rubiks import Baxter
+from baxter_rubiks import Baxter
+import logging
 
-# baxter = Baxter()
+logger = logging.getLogger('baxterRubiks')
 
-# print('class intialized as baxter')
-# print('ready to go')
+baxter = Baxter()
+logger.setLevel('DEBUG')
+logger.handlers[0].setLevel('DEBUG')
 
-from baxter_rubiks import CubeExplorer
-explorer = CubeExplorer()
-
-print('initialized as explorer')
+print('class intialized as baxter')
 print('ready to go')
+# from baxter_rubiks import CubeExplorer
+# explorer = CubeExplorer()
+
+# print('initialized as explorer')
+# print('ready to go')
