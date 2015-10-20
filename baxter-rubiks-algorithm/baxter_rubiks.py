@@ -14,6 +14,8 @@ import cv_bridge
 
 logger = logging.getLogger('baxterRubiks')
 logging.getLogger('requests').setLevel(logging.WARNING)
+logging.getLogger('winediag').setLevel(logging.CRITICAL)
+logging.getLogger('fixme').setLevel(logging.CRITICAL)
 
 
 class BaxterRubiks(object):
@@ -52,14 +54,24 @@ class BaxterRubiks(object):
         logger.info('-----START-----')
         # display the image on baxters face screen
         self.baxter.display_image()
-        # run cube solver
+        # run cube solver if its not already running
         self.cube_solver.run_solver()
         # check the connection to Cube Explorer
         if not self.cube_solver.send_command_webserver('status', 12):
             return
-        logger.info('Fill in the cube colours and solve the cube.')
+        logger.info('Fill in the cube colours and solve the cube in the program')
         # get the cube values from the program
-        manoeuvres = self.cube_solver.send_command_webserver('getLast', 120)
+        get_solution = raw_input(
+            logger.info('Enter "y" when the cube is solved, or "n" to exit'))
+        if get_solution == 'y':
+            manoeuvres = self.cube_solver.send_command_webserver('getLast', 12)
+        elif get_solution == 'n':
+            logger.info('Exiting')
+            return
+        else:
+            logger.error('Invalid input, now exiting')
+            return
+        logger.debug('manoeuvres: {}'.format(manoeuvres))
         # pick up the rubiks cube
         self.baxter.pickup_cube()
         # perform each manipulation
@@ -88,7 +100,7 @@ class CubeExplorer(object):
         """
         checks whether the solver is running
         """
-        processes = commands.getoutput('ps-A')
+        processes = commands.getoutput('ps -A')
         if 'cube512htm' in processes:
             logger.debug('cube explorer running')
             return True
@@ -120,10 +132,13 @@ class CubeExplorer(object):
                 logger.info('Now exiting')
                 subprocess.Popen.kill(self.solver)
                 subprocess.Popen.wait(self.solver)
+                return
             elif close_cube_explorer == 'n':
                 logger.info('Leaving open')
+                return
             else:
                 logger.info('Invalid input, now exiting')
+                return
 
     def send_command_webserver(self, command, retries):
         """
@@ -131,14 +146,14 @@ class CubeExplorer(object):
         command: the text command to send
         retries: the number of retries with 2.5 seconds inbetween
         """
-        logger.info('Sending {} to solver webserver'.format(command))
+        logger.debug('Sending {} to solver webserver'.format(command))
         # Loop until the retries limit is reached
         loopnum = 0
         while loopnum <= retries:
             try:
                 # send command to webserver
                 response = requests.get('http://127.0.0.1:8081/?' + command)
-                logger.info('{} command sent'.format(command))
+                logger.debug('{} command sent'.format(command))
                 break
             except requests.exceptions.ConnectionError:
                 time.sleep(2.5)
@@ -184,10 +199,10 @@ class Baxter(object):
         self.gripper_right = baxter_interface.Gripper('right')
 
         # Verify the robot is enabled
-        logger.info('Getting robot state')
+        logger.debug('Getting robot state')
         self.robotstate = baxter_interface.RobotEnable()
         self.initial_state = self.robotstate.state().enabled
-        logger.info('Enabling robot')
+        logger.debug('Enabling robot')
         self.robotstate.enable()
 
         # Image path to display on baxters face screen
@@ -208,13 +223,13 @@ class Baxter(object):
 
         # joint angles for right limb central and cube positions
         self.right_central = {
-            'right_e0': -0.6369855214416504,
-            'right_e1': 2.139136206262207,
-            'right_s0': 0.8716845817199708,
-            'right_s1': -0.9875001310729982,
-            'right_w0': 1.3077186201782227,
-            'right_w1': 2.089665325909424,
-            'right_w2': -1.1757962725708009}
+            'right_e0': -0.33325732578735356,
+            'right_e1': 2.1889905818115234,
+            'right_s0': 0.5783107563720703,
+            'right_s1': -1.0921943197265627,
+            'right_w0': 1.2509613310913086,
+            'right_w1': 1.909665325909424,
+            'right_w2': -1.1788642341430664}
 
         self.right_cube = {
             'right_e0': -0.11926700612182618,
@@ -303,13 +318,13 @@ class Baxter(object):
 
         # joint angles for left limb central and cube vertical rotation
         self.left_vertical_central = {
-            'left_e0': -0.6902913537597657,
-            'left_e1': 1.7330147931335451,
-            'left_s0': -0.009587379913330078,
-            'left_s1': 0.10584467424316407,
-            'left_w0': -1.0760875214721681,
+            'left_e0': -0.6718835843261719,
+            'left_e1': 1.5439516612426758,
+            'left_s0': -0.08130098166503907,
+            'left_s1': 0.2323980890991211,
+            'left_w0': -1.0316020786743165,
             'left_w1': 2.0946507634643554,
-            'left_w2': -0.40573791793212893}
+            'left_w2': -0.42069423059692385}
 
         self.left_vertical_cube = {
             'left_e0': -1.1374467529174805,
@@ -334,14 +349,14 @@ class Baxter(object):
         """
         Function for safely shutting the program down
         """
-        logger.info('Exiting clean')
+        logger.debug('Exiting clean')
         self.limb_right.move_to_joint_positions(self.right_central)
         self.limb_left.move_to_joint_positions(self.left_central)
         self.gripper_right.open()
         self.gripper_left.open()
         rospy.sleep(0.5)
         if not self.initial_state:
-            logger.info('Disabling Robot')
+            logger.debug('Disabling Robot')
             self.robotstate.disable()
         return True
 
@@ -400,9 +415,9 @@ class Baxter(object):
                     cube_rotation = rotation
                     self.cube_state = state
                     break
-                else:
-                    logger.error('{} is not valid'.format(manoeuvre))
-                    return False
+            else:
+                logger.error('{} is not valid'.format(manoeuvre))
+                return False
 
             # rotate the cube to show the correct face
             getattr(self, 'rotate_cube_' + cube_rotation)()
@@ -608,7 +623,7 @@ class Baxter(object):
         if rospy.is_shutdown():
             logger.error('rospy was shutdown, exiting pickup_cube')
             return
-        logger.info('picking up the rubiks cube')
+        logger.info('Picking up the rubiks cube')
         self.limb_right.move_to_joint_positions(self.right_central)
         rospy.sleep(0.5)
         self.limb_right.move_to_joint_positions(self.right_pickup_central)
@@ -634,7 +649,7 @@ class Baxter(object):
         if rospy.is_shutdown():
             logger.error('rospy was shutdown, exiting putdown_cube')
             return
-        logger.info('putting down the rubiks cube')
+        logger.info('Putting down the rubiks cube')
         self.limb_right.move_to_joint_positions(self.right_pickup_central)
         rospy.sleep(0.5)
         self.limb_right.move_to_joint_positions(self.right_pickup_cube)
