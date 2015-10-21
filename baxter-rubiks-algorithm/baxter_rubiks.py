@@ -538,10 +538,6 @@ class Baxter(object):
         rospy.sleep(0.1)
         self.gripper_right.close()
         rospy.sleep(0.5)
-        self.gripper_left.open()
-        rospy.sleep(0.5)
-        self.limb_left.move_to_joint_positions(self.left_central)
-        rospy.sleep(0.1)
         logger.debug('rotate cube 90acw finished')
         return
 
@@ -578,10 +574,6 @@ class Baxter(object):
         rospy.sleep(0.1)
         self.gripper_right.close()
         rospy.sleep(0.5)
-        self.gripper_left.open()
-        rospy.sleep(0.5)
-        self.limb_left.move_to_joint_positions(self.left_central)
-        rospy.sleep(0.1)
         logger.debug('rotate cube up finished')
         return
 
