@@ -6,6 +6,7 @@ import cv2
 import requests
 import argparse
 import logging
+from progressbar import ProgressBar, ETA, SimpleProgress
 import math
 import rospy
 import baxter_interface
@@ -73,10 +74,12 @@ class BaxterRubiks(object):
         logger.debug('manoeuvres: {}'.format(manoeuvres))
         # pick up the rubiks cube
         self.baxter.pickup_cube()
+        # setup the progressbar
+        pbar_widgets = ['Tagging Event ', SimpleProgress(),
+                        ' |', ETA()]
+        progressbar = ProgressBar(widgets=pbar_widgets, maxval=manoeuvres)
         # perform each manipulation
-        for manoeuvre in manoeuvres:
-            logger.info('Performing manoeuvre {} of {}: {}'.format(
-                manoeuvres.index(manoeuvre) + 1, len(manoeuvres), manoeuvre))
+        for manoeuvre in progressbar(manoeuvres):
             if self.baxter.perform_manoeuvre(manoeuvre) is False:
                 logger.error('An error occured durring manoeuvre performing')
                 return
