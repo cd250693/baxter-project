@@ -6,6 +6,7 @@ import cv2
 import requests
 import argparse
 import logging
+from progressbar import ProgressBar, ETA, SimpleProgress
 import math
 import rospy
 import baxter_interface
@@ -61,8 +62,7 @@ class BaxterRubiks(object):
             return
         logger.info('Fill in the cube colours and solve the cube in the program')
         # get the cube values from the program
-        get_solution = raw_input(
-            logger.info('Enter "y" when the cube is solved, or "n" to exit'))
+        get_solution = raw_input('Enter "y" when the cube is solved, or "n" to exit: ')
         if get_solution == 'y':
             manoeuvres = self.cube_solver.send_command_webserver('getLast', 12)
         elif get_solution == 'n':
@@ -74,8 +74,12 @@ class BaxterRubiks(object):
         logger.debug('manoeuvres: {}'.format(manoeuvres))
         # pick up the rubiks cube
         self.baxter.pickup_cube()
+        # setup the progressbar
+        pbar_widgets = ['Tagging Event ', SimpleProgress(),
+                        ' |', ETA()]
+        progressbar = ProgressBar(widgets=pbar_widgets, maxval=manoeuvres)
         # perform each manipulation
-        for manoeuvre in manoeuvres:
+        for manoeuvre in progressbar(manoeuvres):
             if self.baxter.perform_manoeuvre(manoeuvre) is False:
                 logger.error('An error occured durring manoeuvre performing')
                 return
@@ -204,6 +208,8 @@ class Baxter(object):
         self.initial_state = self.robotstate.state().enabled
         logger.debug('Enabling robot')
         self.robotstate.enable()
+        # Change the tolerance for the positions
+        baxter_interface.settings.JOINT_ANGLE_TOLERANCE = 0.004
 
         # Image path to display on baxters face screen
         self.img_path = 'rubiks_algorithm_image.jpg'
@@ -251,13 +257,13 @@ class Baxter(object):
             'right_w2': -0.09165535197143555}
 
         self.right_pickup_cube = {
-            'right_e0': -0.7669903930664063,
-            'right_e1': 0.8007379703613282,
-            'right_s0': 1.2172137537963867,
-            'right_s1': -0.4421699616027832,
-            'right_w0': 0.6803204786499024,
-            'right_w1': 1.432738054248047,
-            'right_w2': -0.120800986907959}
+            'right_e0': -0.8379370044250489,
+            'right_e1': 0.8939273031188966,
+            'right_s0': 1.2720535669006348,
+            'right_s1': -0.47093210134277347,
+            'right_w0': 0.7320923301818848,
+            'right_w1': 1.370611832409668,
+            'right_w2': -0.15339807861328125}
 
         # joint angles for right limb central and cube flat rotation
         self.right_flat_central = {
@@ -480,13 +486,11 @@ class Baxter(object):
         self.gripper_right.open()
         rospy.sleep(0.5)
         self.limb_right.move_to_joint_positions(self.right_central)
-        rospy.sleep(0.2)
-        self.limb_left.move_to_joint_positions(self.left_flat_central)
-        rospy.sleep(0.2)
-        self.limb_right.move_to_joint_positions(self.right_flat_central)
-        rospy.sleep(0.2)
+        rospy.sleep(0.1)
         self.limb_left.move_to_joint_positions(self.left_flat_cube)
-        rospy.sleep(0.2)
+        rospy.sleep(0.1)
+        self.limb_right.move_to_joint_positions(self.right_flat_central)
+        rospy.sleep(0.1)
         self.limb_right.move_to_joint_positions(self.right_flat_cube)
         rospy.sleep(0.2)
         self.gripper_right.close()
@@ -494,15 +498,11 @@ class Baxter(object):
         self.gripper_left.open()
         rospy.sleep(0.5)
         self.limb_left.move_to_joint_positions(self.left_flat_central)
-        rospy.sleep(0.2)
-        self.limb_right.move_to_joint_positions(self.right_flat_central)
-        rospy.sleep(0.2)
-        self.limb_right.move_to_joint_positions(self.right_central)
-        rospy.sleep(0.2)
-        self.limb_left.move_to_joint_positions(self.left_central)
-        rospy.sleep(0.2)
+        rospy.sleep(0.1)
         self.limb_right.move_to_joint_positions(self.right_cube)
-        rospy.sleep(0.2)
+        rospy.sleep(0.1)
+        self.limb_left.move_to_joint_positions(self.left_central)
+        rospy.sleep(0.1)
         logger.debug('rotate cube 90cw finished')
         return
 
@@ -511,13 +511,11 @@ class Baxter(object):
         Rotate the cube flat 90 degrees anticlockwise
         """
         self.limb_left.move_to_joint_positions(self.left_central)
-        rospy.sleep(0.2)
-        self.limb_left.move_to_joint_positions(self.left_flat_central)
-        rospy.sleep(0.2)
-        self.limb_right.move_to_joint_positions(self.right_flat_central)
-        rospy.sleep(0.2)
+        rospy.sleep(0.1)
         self.limb_right.move_to_joint_positions(self.right_flat_cube)
-        rospy.sleep(0.2)
+        rospy.sleep(0.1)
+        self.limb_left.move_to_joint_positions(self.left_flat_central)
+        rospy.sleep(0.1)
         self.limb_left.move_to_joint_positions(self.left_flat_cube)
         rospy.sleep(0.2)
         self.gripper_left.close()
@@ -525,23 +523,15 @@ class Baxter(object):
         self.gripper_right.open()
         rospy.sleep(0.5)
         self.limb_right.move_to_joint_positions(self.right_flat_central)
-        rospy.sleep(0.2)
-        self.limb_left.move_to_joint_positions(self.left_flat_central)
-        rospy.sleep(0.2)
-        self.limb_left.move_to_joint_positions(self.left_central)
-        rospy.sleep(0.2)
-        self.limb_right.move_to_joint_positions(self.right_central)
-        rospy.sleep(0.2)
+        rospy.sleep(0.1)
         self.limb_left.move_to_joint_positions(self.left_cube)
-        rospy.sleep(0.2)
+        rospy.sleep(0.1)
+        self.limb_right.move_to_joint_positions(self.right_central)
+        rospy.sleep(0.1)
         self.limb_right.move_to_joint_positions(self.right_cube)
         rospy.sleep(0.2)
         self.gripper_right.close()
         rospy.sleep(0.5)
-        self.gripper_left.open()
-        rospy.sleep(0.5)
-        self.limb_left.move_to_joint_positions(self.left_central)
-        rospy.sleep(0.2)
         logger.debug('rotate cube 90acw finished')
         return
 
@@ -569,19 +559,13 @@ class Baxter(object):
         self.gripper_right.open()
         rospy.sleep(0.5)
         self.limb_right.move_to_joint_positions(self.right_central)
-        rospy.sleep(0.2)
-        self.limb_left.move_to_joint_positions(self.left_vertical_central)
-        rospy.sleep(0.2)
+        rospy.sleep(0.1)
         self.limb_left.move_to_joint_positions(self.left_cube)
         rospy.sleep(0.2)
         self.limb_right.move_to_joint_positions(self.right_cube)
         rospy.sleep(0.2)
         self.gripper_right.close()
         rospy.sleep(0.5)
-        self.gripper_left.open()
-        rospy.sleep(0.5)
-        self.limb_left.move_to_joint_positions(self.left_central)
-        rospy.sleep(0.2)
         logger.debug('rotate cube up finished')
         return
 
@@ -598,9 +582,7 @@ class Baxter(object):
         self.gripper_right.open()
         rospy.sleep(0.5)
         self.limb_right.move_to_joint_positions(self.right_central)
-        rospy.sleep(0.2)
-        self.limb_left.move_to_joint_positions(self.left_vertical_central)
-        rospy.sleep(0.2)
+        rospy.sleep(0.1)
         self.limb_left.move_to_joint_positions(self.left_vertical_cube)
         rospy.sleep(0.2)
         self.limb_right.move_to_joint_positions(self.right_cube)
