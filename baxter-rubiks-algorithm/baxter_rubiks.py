@@ -61,8 +61,7 @@ class BaxterRubiks(object):
             return
         logger.info('Fill in the cube colours and solve the cube in the program')
         # get the cube values from the program
-        get_solution = raw_input(
-            logger.info('Enter "y" when the cube is solved, or "n" to exit'))
+        get_solution = raw_input('Enter "y" when the cube is solved, or "n" to exit: ')
         if get_solution == 'y':
             manoeuvres = self.cube_solver.send_command_webserver('getLast', 12)
         elif get_solution == 'n':
@@ -76,6 +75,8 @@ class BaxterRubiks(object):
         self.baxter.pickup_cube()
         # perform each manipulation
         for manoeuvre in manoeuvres:
+            logger.info('Performing manoeuvre {} of {}: {}'.format(
+                manoeuvres.index(manoeuvre) + 1, len(manoeuvres), manoeuvre))
             if self.baxter.perform_manoeuvre(manoeuvre) is False:
                 logger.error('An error occured durring manoeuvre performing')
                 return
@@ -253,13 +254,13 @@ class Baxter(object):
             'right_w2': -0.09165535197143555}
 
         self.right_pickup_cube = {
-            'right_e0': -0.7669903930664063,
-            'right_e1': 0.8007379703613282,
-            'right_s0': 1.2172137537963867,
-            'right_s1': -0.4421699616027832,
-            'right_w0': 0.6803204786499024,
-            'right_w1': 1.432738054248047,
-            'right_w2': -0.120800986907959}
+            'right_e0': -0.8379370044250489,
+            'right_e1': 0.8939273031188966,
+            'right_s0': 1.2720535669006348,
+            'right_s1': -0.47093210134277347,
+            'right_w0': 0.7320923301818848,
+            'right_w1': 1.370611832409668,
+            'right_w2': -0.15339807861328125}
 
         # joint angles for right limb central and cube flat rotation
         self.right_flat_central = {
