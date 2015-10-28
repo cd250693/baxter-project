@@ -75,7 +75,7 @@ class BaxterRubiks(object):
         # pick up the rubiks cube
         self.baxter.pickup_cube()
         # setup the progressbar
-        pbar_widgets = ['Tagging Event ', SimpleProgress(),
+        pbar_widgets = ['Performing Manoeuvre ', SimpleProgress(),
                         ' |', ETA()]
         progressbar = ProgressBar(widgets=pbar_widgets, maxval=manoeuvres)
         # perform each manipulation
