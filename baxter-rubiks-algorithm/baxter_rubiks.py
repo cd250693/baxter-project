@@ -76,7 +76,7 @@ class BaxterRubiks(object):
         self.baxter.pickup_cube()
         # setup the progressbar
         pbar_widgets = ['Performing Manoeuvre ', SimpleProgress(),
-                        ' |', ETA()]
+                        ' | ', ETA()]
         progressbar = ProgressBar(widgets=pbar_widgets, maxval=manoeuvres)
         # perform each manipulation
         for manoeuvre in progressbar(manoeuvres):
