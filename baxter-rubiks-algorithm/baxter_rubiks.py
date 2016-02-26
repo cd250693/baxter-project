@@ -60,9 +60,9 @@ class BaxterRubiks(object):
         # check the connection to Cube Explorer
         if not self.cube_solver.send_command_webserver('status', 12):
             return
-        logger.info('Fill in the cube colours and solve the cube in the program')
+        logger.info('Fill in the cube colours and solve the cube in Cube Explorer')
         # get the cube values from the program
-        get_solution = raw_input('Enter "y" when the cube is solved, or "n" to exit: ')
+        get_solution = raw_input('Enter "y" when the cube is solved and in position, or "n" to exit: ')
         if get_solution == 'y':
             manoeuvres = self.cube_solver.send_command_webserver('getLast', 12)
         elif get_solution == 'n':
@@ -211,8 +211,9 @@ class Baxter(object):
         # Change the tolerance for the positions
         baxter_interface.settings.JOINT_ANGLE_TOLERANCE = 0.004
 
-        # Image path to display on baxters face screen
-        self.img_path = 'rubiks_algorithm_image.jpg'
+        # Path to display given image on baxters face screen 
+	    # must be 1024x600 otherwise it will be cropped
+        self.img_path = 'baxter_rubiks_algorithm_image.jpg'
 
         # Initialize cube state, will be changed to keep track of the current cube state
         self.cube_state = 'F1'
