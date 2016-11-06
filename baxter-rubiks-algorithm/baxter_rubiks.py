@@ -13,6 +13,8 @@ import baxter_interface
 from sensor_msgs.msg import Image
 import cv_bridge
 
+# Get the logger defined in python_logging.conf, and hide some
+# wine logging.
 logger = logging.getLogger('baxterRubiks')
 logging.getLogger('requests').setLevel(logging.WARNING)
 logging.getLogger('winediag').setLevel(logging.CRITICAL)
@@ -23,8 +25,8 @@ class BaxterRubiks(object):
     """
     Solves a rubiks cube using the Baxter Research Robot's servo system
     along with the solving algorithm Cube Explorer
-    This class specifically controls the overall process and creates instances of
-    the other classes.
+    This class specifically controls the overall process and creates instances
+    of the other classes.
     """
 
     def __init__(self, loglevel):
@@ -47,10 +49,12 @@ class BaxterRubiks(object):
             logger.setLevel('INFO')
             logger.handlers[0].setLevel('INFO')
 
-    def solve_rubiks_cube(self):
+    def solve_rubiks_cube(self, cube_string=None):
         """
         Function that automates the process of solving the rubiks cube using
         Baxter
+        cube_string: A string representing the layout of the rubiks cube.
+                    ##### TODO: Look up required format 
         """
         logger.info('-----START-----')
         # display the image on baxters face screen
@@ -60,17 +64,24 @@ class BaxterRubiks(object):
         # check the connection to Cube Explorer
         if not self.cube_solver.send_command_webserver('status', 12):
             return
-        logger.info('Fill in the cube colours and solve the cube in Cube Explorer')
-        # get the cube values from the program
-        get_solution = raw_input('Enter "y" when the cube is solved and in position, or "n" to exit: ')
-        if get_solution == 'y':
-            manoeuvres = self.cube_solver.send_command_webserver('getLast', 12)
-        elif get_solution == 'n':
-            logger.info('Exiting')
-            return
+
+        # Send the cube layout to cube explorer, get result back
+        if cube_string:
+            logger.info('Cube layout string: {0}'.format(cube_string))
+            # send the string to the cube and get it back
         else:
-            logger.error('Invalid input, now exiting')
-            return
+            logger.info('Fill in the cube colours and solve the cube in Cube Explorer')
+            # get the cube values from the program
+            get_solution = raw_input('Enter "y" when the cube is solved and in position, or "n" to exit: ')
+            if get_solution == 'y':
+                manoeuvres = self.cube_solver.send_command_webserver('getLast', 12)
+            elif get_solution == 'n':
+                logger.info('Exiting')
+                return
+            else:
+                logger.error('Invalid input, now exiting')
+                return
+        
         logger.debug('manoeuvres: {}'.format(manoeuvres))
         # pick up the rubiks cube
         self.baxter.pickup_cube()
